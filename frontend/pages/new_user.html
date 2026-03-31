@@ -26,7 +26,7 @@
             <form id="registrationForm" class="registration-form">
                 <!-- First name input field -->
                 <div class="form-group">
-                    <label for="firstName">Nombre</label>
+                    <label for="firstName">Nombre o nombres</label>
                     <input 
                         type="text" 
                         id="firstName" 
@@ -38,7 +38,7 @@
 
                 <!-- Last name input field -->
                 <div class="form-group">
-                    <label for="lastName">Apellido</label>
+                    <label for="lastName">Apellidos</label>
                     <input 
                         type="text" 
                         id="lastName" 
@@ -106,6 +106,28 @@
                             <span id="toggleConfirmIcon">Ver</span>
                         </button>
                     </div>
+                </div>
+
+                <!-- University selection field -->
+                <div class="form-group">
+                    <label for="universitySelect">Universidad</label>
+                    <select 
+                        id="universitySelect" 
+                        name="universitySelect"
+                        class="form-control"
+                        required
+                    >
+                        <option value="">-- Selecciona una universidad --</option>
+                        <option value="UNAM|Universidad Nacional Autónoma de México|UNAM.png">Universidad Nacional Autónoma de México</option>
+                        <option value="IPN|Instituto Politécnico Nacional|POLITECNICO.png">Instituto Politécnico Nacional</option>
+                        <option value="UAM|Universidad Autónoma Metropolitana|UAM.png">Universidad Autónoma Metropolitana</option>
+                        <option value="BUAP|Benemérita Universidad Autónoma de Puebla|BUAP.png">Benemérita Universidad Autónoma de Puebla</option>
+                        <option value="TECNM|Instituto Tecnológico Nacional de México|TECNOLOGICO.png">Instituto Tecnológico Nacional de México</option>
+                        <option value="UAGRO|Universidad Autónoma de Guerrero|UAGRO.png">Universidad Autónoma de Guerrero</option>
+                        <option value="CHAPINGO|Universidad Autónoma Chapingo|CHAPINGO.png">Universidad Autónoma Chapingo</option>
+                        <option value="UAEM|Universidad Autónoma del Estado de México|UAEM.png">Universidad Autónoma del Estado de México</option>
+                        <option value="UDG|Universidad de Guadalajara|UAG.png">Universidad de Guadalajara</option>
+                    </select>
                 </div>
 
                 <!-- Terms and conditions checkbox -->

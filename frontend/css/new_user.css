@@ -90,7 +90,8 @@ body {
 /* Input field base styling */
 .form-group input[type="text"],
 .form-group input[type="email"],
-.form-group input[type="password"] {
+.form-group input[type="password"],
+.form-group .form-control {
     padding: 12px 15px;
     border: 2px solid var(--color-gris-claro);
     border-radius: 6px;
@@ -103,7 +104,8 @@ body {
 /* Input field focus state */
 .form-group input[type="text"]:focus,
 .form-group input[type="email"]:focus,
-.form-group input[type="password"]:focus {
+.form-group input[type="password"]:focus,
+.form-group .form-control:focus {
     outline: none;
     border-color: var(--color-azul-medio);
     box-shadow: 0 0 0 3px rgba(21, 83, 168, 0.1);

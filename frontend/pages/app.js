@@ -11,6 +11,7 @@ const perfil = {
   correo:       'usuario@correo.com',
   universidad:  'UNAM',
   uniCompleto:  'Universidad Nacional Autónoma de México',
+  uniImage:     'UNAM.png',
   fotoBase64:   null,   // null = usa iniciales
 };
 
@@ -78,16 +79,18 @@ function cambiarCorreo(correo) {
 
 /**
  * Actualiza la universidad seleccionada.
- * @param {string} valor - "SIGLA|Nombre completo" (value del <select>).
+ * @param {string} valor - "SIGLA|Nombre completo|Imagen" (value del <select>).
  */
 function cambiarUniversidad(valor) {
   if (!valor) return;
-  const [sigla, completo] = valor.split('|');
+  const [sigla, completo, imagen] = valor.split('|');
   perfil.universidad = sigla;
   perfil.uniCompleto = completo;
+  perfil.uniImage = imagen;
   dom.uniLogo().textContent = sigla;
   dom.uniName().textContent = sigla;
   dom.uniSub().textContent  = completo;
+  renderizarUniversidades();
 }
 
 /**
@@ -292,88 +295,114 @@ function renderizarTemas() {
 }
 
 // ════════════════════════════════════════════════
+//  UNIVERSIDADES - Renderizar con imagen
+// ════════════════════════════════════════════════
+
+function renderizarUniversidades() {
+  const lista = document.getElementById('universidadesList');
+  if (!lista) return;
+
+  const imagenPath = `../assets/images/${perfil.uniImage}`;
+  
+  lista.innerHTML = `
+    <div class="universidad-item">
+      <div class="uni-item-image">
+        <img src="${imagenPath}" alt="${perfil.uniCompleto}" onerror="this.src='https://via.placeholder.com/150x100?text=${perfil.universidad}'">
+      </div>
+      <div class="uni-item-content">
+        <h4 class="uni-item-name">${perfil.uniCompleto}</h4>
+        <p class="uni-item-code">Código: ${perfil.universidad}</p>
+      </div>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════
 //  EVENTS
 // ════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
 
+  // Cargar datos del usuario desde localStorage
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    const user = JSON.parse(currentUser);
+    perfil.nombre = user.name;
+    perfil.correo = user.email;
+    perfil.universidad = user.university;
+    perfil.uniCompleto = user.universityName;
+    perfil.uniImage = user.universityImage;
+  }
+
+  // Actualizar datos en la UI
+  dom.displayName().textContent  = perfil.nombre;
+  dom.displayEmail().textContent = perfil.correo;
+  dom.greetingName().textContent = perfil.nombre;
+  dom.uniLogo().textContent      = perfil.universidad;
+  dom.uniName().textContent      = perfil.universidad;
+  dom.uniSub().textContent       = perfil.uniCompleto;
+
+  // Actualizar iniciales del avatar
+  actualizarIniciales(perfil.nombre);
+
   renderizarTemas();
+  renderizarUniversidades();
 
-  // Abrir modal de ajustes
+  // ── Modal Ajustes ────
   document.getElementById('btnAjustes').addEventListener('click', abrirModalAjustes);
-  document.getElementById('userInfoBtn').addEventListener('click', abrirModalAjustes);
-
-  // Cerrar modal ajustes
   document.getElementById('modalClose').addEventListener('click', () => cerrarModal('modalAjustes'));
   document.getElementById('btnCancelar').addEventListener('click', () => cerrarModal('modalAjustes'));
+  document.getElementById('btnGuardar').addEventListener('click', confirmarCambios);
 
-  // Clic fuera del modal ajustes
-  document.getElementById('modalAjustes').addEventListener('click', e => {
-    if (e.target === e.currentTarget) cerrarModal('modalAjustes');
-  });
-
-  // Guardar (abre confirmación)
-  document.getElementById('btnGuardar').addEventListener('click', () => {
-    // Recoger valores del formulario en perfilPendiente
-    perfilPendiente.nombre      = dom.inputNombre().value.trim();
-    perfilPendiente.correo      = dom.inputCorreo().value.trim();
-    perfilPendiente.universidad = dom.inputUniversidad().value.split('|')[0] || perfil.universidad;
-
-    // La foto ya se asigna en tiempo real al seleccionar archivo
-    // pero la guardamos en pendiente si cambió
-    confirmarCambios();
-  });
-
-  // Modal confirmación — No, regresar
-  document.getElementById('btnConfirmCancel').addEventListener('click', () => {
-    cerrarModal('modalConfirm');
-    abrirModal('modalAjustes');
-  });
-
-  // Modal confirmación — Sí, guardar
+  // ── Modal Confirmación ────
+  document.getElementById('btnConfirmCancel').addEventListener('click', () => cerrarModal('modalConfirm'));
   document.getElementById('btnConfirmOk').addEventListener('click', guardarPerfil);
 
-  // Clic fuera del modal confirmación
-  document.getElementById('modalConfirm').addEventListener('click', e => {
-    if (e.target === e.currentTarget) {
-      cerrarModal('modalConfirm');
-      abrirModal('modalAjustes');
-    }
+  // ── Cambiar Universidad ────
+  document.getElementById('btnCambiarUni')?.addEventListener('click', abrirModalAjustes);
+
+  // ── Capturar cambios en los inputs ────
+  dom.inputNombre().addEventListener('change', (e) => {
+    perfilPendiente.nombre = e.target.value;
   });
 
-  // Input de archivo de foto — preview en tiempo real
-  document.getElementById('inputFoto').addEventListener('change', e => {
+  dom.inputCorreo().addEventListener('change', (e) => {
+    perfilPendiente.correo = e.target.value;
+  });
+
+  dom.inputUniversidad().addEventListener('change', (e) => {
+    perfilPendiente.universidad = e.target.value;
+  });
+
+  // ── Foto ────
+  dom.inputFoto().addEventListener('change', (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      mostrarToast('Selecciona un archivo de imagen válido.');
-      return;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const base64 = evt.target.result;
+        perfilPendiente.fotoBase64 = base64;
+        sincronizarPreviewFoto(base64);
+      };
+      reader.readAsDataURL(file);
     }
-
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const base64 = ev.target.result;
-      perfilPendiente.fotoBase64 = base64;
-      sincronizarPreviewFoto(base64);
-    };
-    reader.readAsDataURL(file);
   });
 
-  // Eliminar foto
-  document.getElementById('btnRemovePhoto').addEventListener('click', () => {
+  document.getElementById('btnRemovePhoto')?.addEventListener('click', () => {
     perfilPendiente.fotoBase64 = null;
     sincronizarPreviewFoto(null);
-    document.getElementById('inputFoto').value = '';
-    mostrarToast('Foto eliminada (sin guardar aún).');
+    dom.inputFoto().value = '';
   });
 
-  // Botón cambiar universidad en panel
-  document.getElementById('btnCambiarUni').addEventListener('click', abrirModalAjustes);
-
-  // Atajo teclado: Escape cierra modales
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      cerrarModal('modalAjustes');
-      cerrarModal('modalConfirm');
+  // ── Cerrar modales al hacer click afuera ────
+  [dom.modalAjustes(), dom.modalConfirm()].forEach(modal => {
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          cerrarModal(modal.id);
+        }
+      });
     }
   });
+
+  console.log('Dashboard initialized successfully');
 });

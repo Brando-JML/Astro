@@ -56,7 +56,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Simulate login validation
         // In a real application, this would send a request to the server
         if (validateCredentials(email, password)) {
-            // Successful login - redirect to dashboard
+            // Successful login - get user data and redirect to dashboard
+            const userData = getUserData(email);
+            if (userData) {
+                localStorage.setItem('currentUser', JSON.stringify(userData));
+            }
             window.location.href = 'dashboard.html';
         } else {
             // Failed login - show error message in red
@@ -86,6 +90,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to validate credentials
     // NOTE: This is a client-side simulation. In production, use server-side validation
     function validateCredentials(email, password) {
+        // Check if user account exists in localStorage
+        const userAccount = localStorage.getItem('userAccount');
+        if (userAccount) {
+            const user = JSON.parse(userAccount);
+            return user.email === email && user.password === password;
+        }
+        
         // Example valid credentials (in real app, check against backend database)
         const validCredentials = [
             { email: 'admin@crystal.com', password: 'password123' },
@@ -96,6 +107,32 @@ document.addEventListener('DOMContentLoaded', function() {
         return validCredentials.some(cred => 
             cred.email === email && cred.password === password
         );
+    }
+
+    // Function to get user data from localStorage or default data
+    function getUserData(email) {
+        const userAccount = localStorage.getItem('userAccount');
+        if (userAccount) {
+            const user = JSON.parse(userAccount);
+            if (user.email === email) {
+                return {
+                    name: user.firstName + ' ' + user.lastName,
+                    email: user.email,
+                    university: user.university,
+                    universityName: user.universityName,
+                    universityImage: user.universityImage
+                };
+            }
+        }
+        
+        // Default user data if no account found
+        return {
+            name: 'Usuario',
+            email: email,
+            university: 'UNAM',
+            universityName: 'Universidad Nacional Autónoma de México',
+            universityImage: 'UNAM.png'
+        };
     }
 
     // Clear error message when user starts typing in email field

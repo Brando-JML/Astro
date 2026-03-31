@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const emailInput = document.getElementById('registerEmail');
     const passwordInput = document.getElementById('registerPassword');
     const confirmPasswordInput = document.getElementById('confirmPassword');
+    const universitySelect = document.getElementById('universitySelect');
     const togglePasswordBtn = document.getElementById('toggleRegisterPassword');
     const toggleIcon = document.getElementById('toggleRegisterIcon');
     const toggleConfirmPasswordBtn = document.getElementById('toggleConfirmPassword');
@@ -58,6 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const email = emailInput.value.trim();
         const password = passwordInput.value.trim();
         const confirmPassword = confirmPasswordInput.value.trim();
+        const university = universitySelect.value.trim();
         const termsAccepted = termsCheckbox.checked;
         
         // Clear previous messages
@@ -65,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
         registrationMessage.className = 'registration-message';
         
         // Validate all fields are filled
-        if (!firstName || !lastName || !email || !password || !confirmPassword) {
+        if (!firstName || !lastName || !email || !password || !confirmPassword || !university) {
             showMessage('Por favor completa todos los campos', 'error');
             return;
         }
@@ -96,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Create new user account
-        createUserAccount(firstName, lastName, email, password);
+        createUserAccount(firstName, lastName, email, password, university);
     });
 
     // Function to display success or error messages
@@ -121,10 +123,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to create new user account
     // NOTE: This is a client-side simulation. In production, send data to backend API
-    function createUserAccount(firstName, lastName, email, password) {
+    function createUserAccount(firstName, lastName, email, password, university) {
         // Simulate account creation process
         setTimeout(function() {
             showMessage('Cuenta creada exitosamente. Redirigiendo al login...', 'success');
+            
+            // Parse university data
+            const [uniCode, uniName, uniImage] = university.split('|');
+            
+            // Save user data to localStorage
+            const userData = {
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                password: password,
+                university: uniCode,
+                universityName: uniName,
+                universityImage: uniImage
+            };
+            localStorage.setItem('userAccount', JSON.stringify(userData));
             
             // Reset form fields
             registrationForm.reset();
