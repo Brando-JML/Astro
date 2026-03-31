@@ -1,4 +1,10 @@
+/* ============================================
+   REGISTRATION PAGE STYLES
+   Styling for the user registration form
+   and components
+   ============================================ */
 
+/* Reset default styles and set base font */
 body {
     margin: 0;
     padding: 0;
@@ -11,14 +17,14 @@ body {
 }
 
 /* Main container for centering and layout */
-.login-container {
+.registration-container {
     width: 100%;
-    max-width: 450px;
+    max-width: 500px;
     padding: 20px;
 }
 
 /* Form wrapper with card design and shadow */
-.login-form-wrapper {
+.registration-form-wrapper {
     background-color: var(--color-blanco);
     border-radius: 10px;
     box-shadow: 0 4px 20px rgba(3, 23, 79, 0.15);
@@ -39,13 +45,13 @@ body {
 }
 
 /* Header section styling */
-.login-header {
+.registration-header {
     text-align: center;
     margin-bottom: 30px;
 }
 
 /* Main title styling */
-.login-header h1 {
+.registration-header h1 {
     color: var(--color-azul-profundo);
     font-size: 2.5rem;
     margin: 0 0 10px 0;
@@ -54,17 +60,17 @@ body {
 }
 
 /* Subtitle text styling */
-.login-header p {
+.registration-header p {
     color: var(--color-gris-medio);
     font-size: 1rem;
     margin: 0;
 }
 
 /* Form styling and layout */
-.login-form {
+.registration-form {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
 }
 
 /* Individual form group (label + input wrapper) */
@@ -82,7 +88,9 @@ body {
 }
 
 /* Input field base styling */
-.form-group input {
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"] {
     padding: 12px 15px;
     border: 2px solid var(--color-gris-claro);
     border-radius: 6px;
@@ -93,7 +101,9 @@ body {
 }
 
 /* Input field focus state */
-.form-group input:focus {
+.form-group input[type="text"]:focus,
+.form-group input[type="email"]:focus,
+.form-group input[type="password"]:focus {
     outline: none;
     border-color: var(--color-azul-medio);
     box-shadow: 0 0 0 3px rgba(21, 83, 168, 0.1);
@@ -102,6 +112,13 @@ body {
 /* Input placeholder styling */
 .form-group input::placeholder {
     color: var(--color-gris-medio);
+}
+
+/* Password requirements helper text */
+.password-requirements {
+    color: var(--color-gris-medio);
+    font-size: 0.8rem;
+    margin-top: 5px;
 }
 
 /* Password input wrapper for toggle button positioning */
@@ -136,32 +153,74 @@ body {
     color: var(--color-amarillo-vivo);
 }
 
-/* Error message styling (displays when login fails) */
-.error-message {
-    color: var(--color-error);
-    background-color: rgba(231, 76, 60, 0.1);
-    border: 1px solid var(--color-error);
+/* Checkbox styling */
+.form-check {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: var(--color-amarillo-palido);
+    border-radius: 6px;
+}
+
+/* Checkbox input styling */
+.form-check-input {
+    width: 18px;
+    height: 18px;
+    margin-top: 0.3rem;
+    border: 2px solid var(--color-azul-medio);
+    cursor: pointer;
+}
+
+/* Checkbox input checked state */
+.form-check-input:checked {
+    background-color: var(--color-azul-medio);
+    border-color: var(--color-azul-medio);
+}
+
+/* Checkbox label styling */
+.form-check-label {
+    color: var(--color-azul-profundo);
+    cursor: pointer;
+    margin-left: 8px;
+    font-weight: 500;
+}
+
+/* Registration message styling (displays success or error) */
+.registration-message {
     padding: 12px 15px;
     border-radius: 6px;
     font-size: 0.9rem;
     display: none;
-    animation: shake 0.4s ease-in-out;
+    animation: fadeIn 0.4s ease-in-out;
 }
 
-/* Error message shake animation */
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
+/* Fade-in animation for messages */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
-/* Show error message class */
-.error-message.show {
+/* Success message styling */
+.registration-message.success {
+    color: var(--color-exito);
+    background-color: rgba(39, 174, 96, 0.1);
+    border: 1px solid var(--color-exito);
     display: block;
 }
 
-/* Login submit button styling */
-.btn-login {
+/* Error message styling */
+.registration-message.error {
+    color: var(--color-error);
+    background-color: rgba(231, 76, 60, 0.1);
+    border: 1px solid var(--color-error);
+    display: block;
+}
+
+/* Register submit button styling */
+.btn-register {
     padding: 12px 20px;
     background-color: var(--color-azul-medio);
     color: var(--color-blanco);
@@ -171,71 +230,46 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    margin-top: 10px;
+    margin-top: 15px;
 }
 
-/* Login button hover state */
-.btn-login:hover {
+/* Register button hover state */
+.btn-register:hover {
     background-color: var(--color-azul-profundo);
     transform: translateY(-2px);
     box-shadow: 0 6px 15px rgba(3, 23, 79, 0.3);
 }
 
-/* Login button active state */
-.btn-login:active {
+/* Register button active state */
+.btn-register:active {
     transform: translateY(0);
 }
 
-/* Login footer section with additional links */
-.login-footer {
+/* Registration footer section with navigation links */
+.registration-footer {
     margin-top: 25px;
     padding-top: 25px;
     border-top: 1px solid var(--color-gris-claro);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
+    text-align: center;
 }
 
-/* Forgot password link styling (red for error/recovery emphasis) */
-.forgot-password-link {
-    color: var(--color-error);
-    text-decoration: none;
-    font-size: 0.95rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-/* Forgot password link hover state */
-.forgot-password-link:hover {
-    color: var(--color-amarillo-vivo);
-    text-decoration: underline;
-}
-
-/* Divider line between sections */
-.divider {
-    width: 40px;
-    height: 2px;
-    background-color: var(--color-gris-claro);
-}
-
-/* Create account section text */
-.create-account-text {
+/* Back to login section text */
+.back-to-login {
     color: var(--color-gris-medio);
     font-size: 0.95rem;
     margin: 0;
 }
 
-/* Create account link styling */
-.create-account-link {
+/* Back to login link styling */
+.back-to-login-link {
     color: var(--color-azul-medio);
     text-decoration: none;
     font-weight: 600;
     transition: all 0.3s ease;
 }
 
-/* Create account link hover state */
-.create-account-link:hover {
+/* Back to login link hover state */
+.back-to-login-link:hover {
     color: var(--color-amarillo-vivo);
     text-decoration: underline;
 }
@@ -243,17 +277,17 @@ body {
 /* Responsive design for smaller screens */
 @media (max-width: 600px) {
     /* Reduce padding on smaller screens */
-    .login-form-wrapper {
+    .registration-form-wrapper {
         padding: 30px 20px;
     }
 
     /* Adjust title size for mobile */
-    .login-header h1 {
+    .registration-header h1 {
         font-size: 2rem;
     }
 
     /* Adjust form gap for mobile */
-    .login-form {
-        gap: 15px;
+    .registration-form {
+        gap: 12px;
     }
 }

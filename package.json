@@ -1,5 +1,9 @@
 {
+  "name": "crystal",
+  "version": "1.0.0",
+  "description": "CRYSTAL - University Application Platform",
   "dependencies": {
-    "gridstack": "^12.4.2"
+    "gridstack": "^12.4.2",
+    "bootstrap": "^5.3.0"
   }
 }
