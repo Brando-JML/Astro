@@ -1,7 +1,7 @@
 // ============================================
 // LOGIN PAGE FUNCTIONALITY
 // Handles form validation, password toggle,
-// and error message display
+// and error message display with Firebase
 // ============================================
 
 // Wait for DOM to fully load before executing scripts
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle form submission (login attempt)
-    loginForm.addEventListener('submit', function(e) {
+    loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
         // Get input values
@@ -53,21 +53,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Simulate login validation
-        // In a real application, this would send a request to the server
-        if (validateCredentials(email, password)) {
-            // Successful login - get user data and redirect to dashboard
-            const userData = getUserData(email);
-            if (userData) {
-                localStorage.setItem('currentUser', JSON.stringify(userData));
-            }
-            window.location.href = 'dashboard.html';
-        } else {
-            // Failed login - show error message in red
-            showError('Usuario o contraseña inválidos');
-            // Make forgot password link more visible after failed login
-            forgotPasswordLink.style.fontWeight = '700';
-        }
+        // Attempt login with Firebase
+        await loginWithFirebase(email, password);
     });
 
     // Function to display error messages
@@ -87,52 +74,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return emailRegex.test(email);
     }
 
-    // Function to validate credentials
-    // NOTE: This is a client-side simulation. In production, use server-side validation
-    function validateCredentials(email, password) {
-        // Check if user account exists in localStorage
-        const userAccount = localStorage.getItem('userAccount');
-        if (userAccount) {
-            const user = JSON.parse(userAccount);
-            return user.email === email && user.password === password;
-        }
+    // Function to login with Firebase
+    async function loginWithFirebase(email, password) {
+        const result = await loginUser(email, password);
         
-        // Example valid credentials (in real app, check against backend database)
-        const validCredentials = [
-            { email: 'admin@crystal.com', password: 'password123' },
-            { email: 'user', password: '12345' }
-        ];
-
-        // Check if provided credentials match any valid credential
-        return validCredentials.some(cred => 
-            cred.email === email && cred.password === password
-        );
-    }
-
-    // Function to get user data from localStorage or default data
-    function getUserData(email) {
-        const userAccount = localStorage.getItem('userAccount');
-        if (userAccount) {
-            const user = JSON.parse(userAccount);
-            if (user.email === email) {
-                return {
-                    name: user.firstName + ' ' + user.lastName,
-                    email: user.email,
-                    university: user.university,
-                    universityName: user.universityName,
-                    universityImage: user.universityImage
-                };
+        if (result.success) {
+            // Successful login - store user info and redirect to dashboard
+            if (result.userProfile) {
+                localStorage.setItem('currentUser', JSON.stringify(result.userProfile));
             }
+            window.location.href = 'dashboard.html';
+        } else {
+            // Failed login - show error message
+            showError(result.message);
+            // Make forgot password link more visible after failed login
+            forgotPasswordLink.style.fontWeight = '700';
         }
-        
-        // Default user data if no account found
-        return {
-            name: 'Usuario',
-            email: email,
-            university: 'UNAM',
-            universityName: 'Universidad Nacional Autónoma de México',
-            universityImage: 'UNAM.png'
-        };
     }
 
     // Clear error message when user starts typing in email field
@@ -152,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Log initialization complete
-    console.log('Login page initialized successfully');
+    console.log('Login page initialized successfully with Firebase');
 
 });
 

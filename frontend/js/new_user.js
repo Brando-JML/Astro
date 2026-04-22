@@ -1,7 +1,7 @@
 // ============================================
 // REGISTRATION PAGE FUNCTIONALITY
 // Handles form validation, password matching,
-// password toggle, and account creation
+// password toggle, and account creation with Firebase
 // ============================================
 
 // Wait for DOM to fully load before executing scripts
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle form submission for account creation
-    registrationForm.addEventListener('submit', function(e) {
+    registrationForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
         // Get form values and remove whitespace
@@ -97,8 +97,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Create new user account
-        createUserAccount(firstName, lastName, email, password, university);
+        // Create new user account with Firebase
+        await createUserAccountWithFirebase(firstName, lastName, email, password, university);
     });
 
     // Function to display success or error messages
@@ -121,27 +121,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return passwordRegex.test(password);
     }
 
-    // Function to create new user account
-    // NOTE: This is a client-side simulation. In production, send data to backend API
-    function createUserAccount(firstName, lastName, email, password, university) {
-        // Simulate account creation process
-        setTimeout(function() {
+    // Function to create new user account with Firebase
+    async function createUserAccountWithFirebase(firstName, lastName, email, password, university) {
+        // Parse university data
+        const [uniCode, uniName, uniImage] = university.split('|');
+        
+        // Register user with Firebase
+        const result = await registerUser(email, password, {
+            firstName: firstName,
+            lastName: lastName,
+            university: uniCode,
+            universityName: uniName,
+            universityImage: uniImage
+        });
+
+        if (result.success) {
             showMessage('Cuenta creada exitosamente. Redirigiendo al login...', 'success');
-            
-            // Parse university data
-            const [uniCode, uniName, uniImage] = university.split('|');
-            
-            // Save user data to localStorage
-            const userData = {
-                firstName: firstName,
-                lastName: lastName,
-                email: email,
-                password: password,
-                university: uniCode,
-                universityName: uniName,
-                universityImage: uniImage
-            };
-            localStorage.setItem('userAccount', JSON.stringify(userData));
             
             // Reset form fields
             registrationForm.reset();
@@ -154,7 +149,9 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(function() {
                 window.location.href = 'login.html';
             }, 2000);
-        }, 1000);
+        } else {
+            showMessage(result.message, 'error');
+        }
     }
 
     // Clear error message when user starts typing in any field
@@ -168,5 +165,5 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Log initialization complete
-    console.log('Registration page initialized successfully');
+    console.log('Registration page initialized successfully with Firebase');
 });
