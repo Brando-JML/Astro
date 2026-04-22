@@ -197,6 +197,9 @@ function guardarPerfil() {
   cerrarModal('modalConfirm');
   mostrarToast('✓ Cambios guardados correctamente');
 
+  // Persistir para que no se pierdan cambios al recargar dashboard
+  guardarUsuarioEnLocalStorage();
+
   // Limpiar pendiente
   perfilPendiente = {};
 }
@@ -206,10 +209,11 @@ function guardarPerfil() {
 // ════════════════════════════════════════════════
 
 function actualizarIniciales(nombre) {
-  const palabras = nombre.trim().split(/\s+/);
+  const nombreSeguro = typeof nombre === 'string' ? nombre.trim() : '';
+  const palabras = nombreSeguro ? nombreSeguro.split(/\s+/) : [];
   const iniciales = palabras.length >= 2
     ? (palabras[0][0] + palabras[1][0]).toUpperCase()
-    : nombre.substring(0, 2).toUpperCase();
+    : (nombreSeguro.substring(0, 2).toUpperCase() || 'US');
 
   document.querySelectorAll('.avatar-initials').forEach(el => {
     el.textContent = iniciales;
@@ -241,6 +245,28 @@ function mostrarToast(msg) {
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function obtenerPartesNombre(nombreCompleto) {
+  const tokens = String(nombreCompleto || '').trim().split(/\s+/).filter(Boolean);
+  const firstName = tokens.shift() || '';
+  const lastName = tokens.join(' ');
+  return { firstName, lastName };
+}
+
+function guardarUsuarioEnLocalStorage() {
+  const { firstName, lastName } = obtenerPartesNombre(perfil.nombre);
+  const userData = {
+    name: perfil.nombre,
+    email: perfil.correo,
+    university: perfil.universidad,
+    universityName: perfil.uniCompleto,
+    universityImage: perfil.uniImage,
+    firstName,
+    lastName,
+  };
+
+  localStorage.setItem('currentUser', JSON.stringify(userData));
 }
 
 // ── Pre-rellenar el modal con los valores actuales ──
@@ -325,12 +351,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Cargar datos del usuario desde localStorage
   const currentUser = localStorage.getItem('currentUser');
   if (currentUser) {
-    const user = JSON.parse(currentUser);
-    perfil.nombre = user.name;
-    perfil.correo = user.email;
-    perfil.universidad = user.university;
-    perfil.uniCompleto = user.universityName;
-    perfil.uniImage = user.universityImage;
+    try {
+      const user = JSON.parse(currentUser);
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+
+      perfil.nombre = String(user.name || fullName || user.nombre || perfil.nombre || 'Usuario').trim();
+      perfil.correo = String(user.email || user.correo || perfil.correo || 'usuario@correo.com').trim();
+      perfil.universidad = String(user.university || user.universidad || perfil.universidad || 'UNAM').trim();
+      perfil.uniCompleto = String(user.universityName || user.uniCompleto || perfil.uniCompleto || 'Universidad Nacional Autónoma de México').trim();
+      perfil.uniImage = String(user.universityImage || user.uniImage || perfil.uniImage || 'UNAM.png').trim();
+    } catch (error) {
+      console.warn('No se pudo parsear currentUser, se usarán valores por defecto.', error);
+    }
   }
 
   // Actualizar datos en la UI
@@ -348,33 +380,38 @@ document.addEventListener('DOMContentLoaded', () => {
   renderizarUniversidades();
 
   // ── Modal Ajustes ────
-  document.getElementById('btnAjustes').addEventListener('click', abrirModalAjustes);
-  document.getElementById('modalClose').addEventListener('click', () => cerrarModal('modalAjustes'));
-  document.getElementById('btnCancelar').addEventListener('click', () => cerrarModal('modalAjustes'));
-  document.getElementById('btnGuardar').addEventListener('click', confirmarCambios);
+  document.getElementById('btnAjustes')?.addEventListener('click', abrirModalAjustes);
+  document.getElementById('modalClose')?.addEventListener('click', () => cerrarModal('modalAjustes'));
+  document.getElementById('btnCancelar')?.addEventListener('click', () => cerrarModal('modalAjustes'));
+  document.getElementById('btnGuardar')?.addEventListener('click', confirmarCambios);
 
   // ── Modal Confirmación ────
-  document.getElementById('btnConfirmCancel').addEventListener('click', () => cerrarModal('modalConfirm'));
-  document.getElementById('btnConfirmOk').addEventListener('click', guardarPerfil);
+  document.getElementById('btnConfirmCancel')?.addEventListener('click', () => cerrarModal('modalConfirm'));
+  document.getElementById('btnConfirmOk')?.addEventListener('click', guardarPerfil);
 
   // ── Cambiar Universidad ────
   document.getElementById('btnCambiarUni')?.addEventListener('click', abrirModalAjustes);
 
   // ── Capturar cambios en los inputs ────
-  dom.inputNombre().addEventListener('change', (e) => {
+  const inputNombre = dom.inputNombre();
+  const inputCorreo = dom.inputCorreo();
+  const inputUniversidad = dom.inputUniversidad();
+  const inputFoto = dom.inputFoto();
+
+  inputNombre?.addEventListener('change', (e) => {
     perfilPendiente.nombre = e.target.value;
   });
 
-  dom.inputCorreo().addEventListener('change', (e) => {
+  inputCorreo?.addEventListener('change', (e) => {
     perfilPendiente.correo = e.target.value;
   });
 
-  dom.inputUniversidad().addEventListener('change', (e) => {
+  inputUniversidad?.addEventListener('change', (e) => {
     perfilPendiente.universidad = e.target.value;
   });
 
   // ── Foto ────
-  dom.inputFoto().addEventListener('change', (e) => {
+  inputFoto?.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
@@ -390,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnRemovePhoto')?.addEventListener('click', () => {
     perfilPendiente.fotoBase64 = null;
     sincronizarPreviewFoto(null);
-    dom.inputFoto().value = '';
+    if (inputFoto) inputFoto.value = '';
   });
 
   // ── Cerrar modales al hacer click afuera ────

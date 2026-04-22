@@ -81,7 +81,18 @@ document.addEventListener('DOMContentLoaded', function() {
         if (result.success) {
             // Successful login - store user info and redirect to dashboard
             if (result.userProfile) {
-                localStorage.setItem('currentUser', JSON.stringify(result.userProfile));
+                const profile = result.userProfile;
+                const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
+                const normalizedUser = {
+                    ...profile,
+                    name: profile.name || fullName || 'Usuario',
+                    email: profile.email || email,
+                    university: profile.university || profile.universidad || 'UNAM',
+                    universityName: profile.universityName || profile.uniCompleto || 'Universidad Nacional Autónoma de México',
+                    universityImage: profile.universityImage || profile.uniImage || 'UNAM.png'
+                };
+
+                localStorage.setItem('currentUser', JSON.stringify(normalizedUser));
             }
             window.location.href = 'dashboard.html';
         } else {

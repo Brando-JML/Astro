@@ -1,0 +1,41 @@
+// REGLAS DE SEGURIDAD PARA FIREBASE REALTIME DATABASE
+// Copia este código a Firebase Console > Realtime Database > Rules
+// Esto asegura que solo los usuarios puedan acceder a sus propios datos
+
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        // Solo el usuario propietario puede leer y escribir sus datos
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid",
+        
+        // Validaciones de datos
+        "email": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "firstName": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "lastName": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "university": {
+          ".validate": "newData.isString()"
+        },
+        "universityName": {
+          ".validate": "newData.isString()"
+        },
+        "universityImage": {
+          ".validate": "newData.isString()"
+        },
+        "createdAt": {
+          ".validate": "newData.isString()"
+        },
+        "updatedAt": {
+          ".validate": "newData.isString()"
+        }
+      }
+    }
+  }
+}
