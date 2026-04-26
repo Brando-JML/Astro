@@ -89,7 +89,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     email: profile.email || email,
                     university: profile.university || profile.universidad || 'UNAM',
                     universityName: profile.universityName || profile.uniCompleto || 'Universidad Nacional Autónoma de México',
-                    universityImage: profile.universityImage || profile.uniImage || 'UNAM.png'
+                    universityImage: profile.universityImage || profile.uniImage || 'UNAM.png',
+                    profileImage: profile.user_icon || profile.profileImage || null,
+                    user_icon: profile.user_icon || null
                 };
 
                 localStorage.setItem('currentUser', JSON.stringify(normalizedUser));

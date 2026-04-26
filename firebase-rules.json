@@ -29,6 +29,9 @@
         "universityImage": {
           ".validate": "newData.isString()"
         },
+        "user_icon": {
+          ".validate": "newData.isString() || newData.isNull()"
+        },
         "createdAt": {
           ".validate": "newData.isString()"
         },

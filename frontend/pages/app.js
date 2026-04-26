@@ -214,13 +214,17 @@ function guardarPerfil() {
   }
 
   cerrarModal('modalConfirm');
-  mostrarToast('✓ Cambios guardados correctamente');
 
   // Persistir para que no se pierdan cambios al recargar dashboard
   guardarUsuarioEnLocalStorage();
   
-  // Guardar en Firebase
-  guardarPerfilEnFirebase();
+  // Guardar en Firebase y esperar a que termine
+  guardarPerfilEnFirebase().then(() => {
+    mostrarToast('✓ Cambios guardados correctamente');
+  }).catch((error) => {
+    console.error('Error al guardar en Firebase:', error);
+    mostrarToast('⚠ Error al guardar cambios');
+  });
 
   // Limpiar pendiente
   perfilPendiente = {};
@@ -285,6 +289,7 @@ function guardarUsuarioEnLocalStorage() {
     universityName: perfil.uniCompleto,
     universityImage: perfil.uniImage,
     profileImage: perfil.profileImage,
+    user_icon: perfil.profileImage,
     firstName,
     lastName,
   };
@@ -420,7 +425,7 @@ async function guardarPerfilEnFirebase() {
     const userId = localStorage.getItem('userId');
     if (!userId) {
       console.warn('No userId found, skipping Firebase save');
-      return;
+      return { success: false, message: 'No user ID' };
     }
 
     const updates = {
@@ -429,41 +434,77 @@ async function guardarPerfilEnFirebase() {
       university: perfil.universidad,
       universityName: perfil.uniCompleto,
       universityImage: perfil.uniImage,
-      profileImage: perfil.profileImage,
+      user_icon: perfil.profileImage,
       updatedAt: new Date().toISOString()
     };
 
     const result = await updateUserProfile(userId, updates);
     if (result.success) {
       console.log('Perfil guardado en Firebase correctamente');
+      // Actualizar localStorage después de guardar en Firebase
+      guardarUsuarioEnLocalStorage();
+      return result;
     } else {
       console.error('Error al guardar en Firebase:', result.error);
+      return result;
     }
   } catch (error) {
     console.error('Error en guardarPerfilEnFirebase:', error);
+    return { success: false, error: error.message };
   }
 }
 
 // ════════════════════════════════════════════════
 //  EVENTS
 // ════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
 
-  // Cargar datos del usuario desde localStorage
-  const currentUser = localStorage.getItem('currentUser');
-  if (currentUser) {
+  // Intentar cargar desde Firebase primero (datos más recientes)
+  const userId = localStorage.getItem('userId');
+  let perfilCargado = false;
+  
+  if (userId) {
     try {
-      const user = JSON.parse(currentUser);
-      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+      const userProfile = await getUserProfile(userId);
+      if (userProfile) {
+        const user = userProfile;
+        const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
 
-      perfil.nombre = String(user.name || fullName || user.nombre || perfil.nombre || 'Usuario').trim();
-      perfil.correo = String(user.email || user.correo || perfil.correo || 'usuario@correo.com').trim();
-      perfil.universidad = String(user.university || user.universidad || perfil.universidad || 'UNAM').trim();
-      perfil.uniCompleto = String(user.universityName || user.uniCompleto || perfil.uniCompleto || 'Universidad Nacional Autónoma de México').trim();
-      perfil.uniImage = String(user.universityImage || user.uniImage || perfil.uniImage || 'UNAM.png').trim();
-      perfil.profileImage = user.profileImage || null;
+        perfil.nombre = String(user.name || fullName || user.nombre || perfil.nombre || 'Usuario').trim();
+        perfil.correo = String(user.email || user.correo || perfil.correo || 'usuario@correo.com').trim();
+        perfil.universidad = String(user.university || user.universidad || perfil.universidad || 'UNAM').trim();
+        perfil.uniCompleto = String(user.universityName || user.uniCompleto || perfil.uniCompleto || 'Universidad Nacional Autónoma de México').trim();
+        perfil.uniImage = String(user.universityImage || user.uniImage || perfil.uniImage || 'UNAM.png').trim();
+        // Cargar user_icon desde Firebase
+        perfil.profileImage = user.user_icon || user.profileImage || null;
+        perfilCargado = true;
+        
+        // Actualizar localStorage con datos frescos de Firebase
+        guardarUsuarioEnLocalStorage();
+      }
     } catch (error) {
-      console.warn('No se pudo parsear currentUser, se usarán valores por defecto.', error);
+      console.warn('Error cargando desde Firebase, usando localStorage:', error);
+    }
+  }
+
+  // Si no se cargó desde Firebase, intentar desde localStorage
+  if (!perfilCargado) {
+    const currentUser = localStorage.getItem('currentUser');
+    if (currentUser) {
+      try {
+        const user = JSON.parse(currentUser);
+        const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+
+        perfil.nombre = String(user.name || fullName || user.nombre || perfil.nombre || 'Usuario').trim();
+        perfil.correo = String(user.email || user.correo || perfil.correo || 'usuario@correo.com').trim();
+        perfil.universidad = String(user.university || user.universidad || perfil.universidad || 'UNAM').trim();
+        perfil.uniCompleto = String(user.universityName || user.uniCompleto || perfil.uniCompleto || 'Universidad Nacional Autónoma de México').trim();
+        perfil.uniImage = String(user.universityImage || user.uniImage || perfil.uniImage || 'UNAM.png').trim();
+        // Cargar user_icon desde Firebase o usar profileImage como fallback
+        perfil.profileImage = user.user_icon || user.profileImage || null;
+      } catch (error) {
+        console.warn('No se pudo parsear currentUser, se usarán valores por defecto.', error);
+      }
     }
   }
 
