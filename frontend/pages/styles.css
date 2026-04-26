@@ -34,7 +34,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   font-family: var(--font-secondary);
   color: var(--color-gris-oscuro);
   background-color: var(--color-gris-muy-claro);
@@ -68,7 +69,7 @@ html, body {
 }
 
 .user-info:hover {
-  background-color: var(--color-gris-muy-claro);
+  background-color: var(--color-azul-claro);
 }
 
 .avatar {
@@ -96,8 +97,15 @@ html, body {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); opacity: 0.8; }
-  100% { transform: scale(1.1); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(1.1);
+    opacity: 0;
+  }
 }
 
 .avatar-initials {
@@ -144,6 +152,21 @@ html, body {
   color: var(--color-gris-medio);
 }
 
+/* Botón de perfil: transparente porque tiene
+   la clase .user-info como fondo */
+.btn-profile {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-blanco);
+  color: var(--color-blanco);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Botón de ajustes: en desuso pero puede
+   que se use en un futuro */
 .btn-ajustes {
   display: flex;
   align-items: center;
