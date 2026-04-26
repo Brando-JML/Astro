@@ -171,17 +171,29 @@
               <img class="avatar-photo" id="previewPhoto" src="" alt="" />
             </div>
             <div class="photo-actions">
-              <label class="btn-upload" for="inputFoto">
+              <button class="btn-upload" id="btnOpenGallery">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                   <polyline points="17 8 12 3 7 8"/>
                   <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                Subir imagen
-              </label>
-              <input type="file" id="inputFoto" accept="image/*" class="input-hidden" />
+                Seleccionar imagen
+              </button>
               <button class="btn-remove-photo" id="btnRemovePhoto">Eliminar foto</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Galería de imágenes modal -->
+        <div class="modal-overlay" id="modalGallery">
+          <div class="modal modal--gallery">
+            <div class="modal-header">
+              <h2 class="modal-title">Selecciona una imagen</h2>
+              <button class="modal-close" id="modalGalleryClose" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gallery-grid" id="galleryGrid"></div>
             </div>
           </div>
         </div>

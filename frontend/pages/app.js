@@ -12,8 +12,17 @@ const perfil = {
   universidad:  'UNAM',
   uniCompleto:  'Universidad Nacional Autónoma de México',
   uniImage:     'UNAM.png',
-  fotoBase64:   null,   // null = usa iniciales
+  profileImage: null,   // nombre de imagen en user_icons/
+  fotoBase64:   null,   // null = usa iniciales (deprecado)
 };
+
+// ── Imágenes disponibles ──────────────────────
+const imagenesPerfil = [
+  'ahri.jpg', 'aurelio_sol.jpg', 'cepibolla.jpeg', 'diku.jpg', 'ekko.jpg',
+  'gato1.jpg', 'gato2.jpg', 'gato_gojo.jpg', 'gato_maid.jpg', 'gato_pasto.jpg',
+  'godman.jpg', 'jolunai.jpg', 'kirbo.jpg', 'kirby.jpeg', 'lisandra.jpg',
+  'meowl.jpg', 'mimikiu.jpg', 'reze.jpg', 'silly.jpg', 'tresh.jpg'
+];
 
 // Copia temporal mientras el usuario edita (antes de confirmar)
 let perfilPendiente = {};
@@ -37,9 +46,12 @@ const dom = {
   inputNombre:     () => document.getElementById('inputNombre'),
   inputCorreo:     () => document.getElementById('inputCorreo'),
   inputUniversidad:() => document.getElementById('inputUniversidad'),
-  inputFoto:       () => document.getElementById('inputFoto'),
   previewInitials: () => document.getElementById('previewInitials'),
   previewPhoto:    () => document.getElementById('previewPhoto'),
+
+  // modal galería
+  modalGallery:    () => document.getElementById('modalGallery'),
+  galleryGrid:     () => document.getElementById('galleryGrid'),
 
   // modal confirmación
   modalConfirm:    () => document.getElementById('modalConfirm'),
@@ -94,20 +106,28 @@ function cambiarUniversidad(valor) {
 }
 
 /**
- * Actualiza la fotografía de perfil desde un Base64.
- * @param {string|null} base64 - Imagen en base64, o null para eliminar.
+ * Actualiza la fotografía de perfil desde el nombre de imagen.
+ * @param {string|null} imageName - Nombre del archivo de imagen, o null para eliminar.
  */
-function cambiarFotografia(base64) {
-  perfil.fotoBase64 = base64;
+function cambiarFotografia(imageName) {
+  perfil.profileImage = imageName;
 
   // Topbar
   const foto = dom.avatarPhoto();
-  if (base64) {
-    foto.src = base64;
+  if (imageName) {
+    foto.src = `../assets/user_icons/${imageName}`;
     foto.classList.add('visible');
+    // Ocultar iniciales cuando hay imagen
+    document.querySelectorAll('.avatar-initials').forEach(el => {
+      el.classList.add('hidden');
+    });
   } else {
     foto.src = '';
     foto.classList.remove('visible');
+    // Mostrar iniciales cuando NO hay imagen
+    document.querySelectorAll('.avatar-initials').forEach(el => {
+      el.classList.remove('hidden');
+    });
   }
 }
 
@@ -130,11 +150,11 @@ function detectarCambios() {
       perfilPendiente.universidad !== perfil.universidad)
     cambios.push({ key: 'Universidad', val: perfilPendiente.universidad });
 
-  if (perfilPendiente.fotoBase64 !== undefined &&
-      perfilPendiente.fotoBase64 !== perfil.fotoBase64)
+  if (perfilPendiente.profileImage !== undefined &&
+      perfilPendiente.profileImage !== perfil.profileImage)
     cambios.push({
       key: 'Foto',
-      val: perfilPendiente.fotoBase64 ? 'Nueva imagen cargada' : 'Eliminada',
+      val: perfilPendiente.profileImage ? 'Imagen seleccionada' : 'Eliminada',
     });
 
   return cambios;
@@ -187,11 +207,10 @@ function guardarPerfil() {
       perfilPendiente.universidad !== perfil.universidad)
     cambiarUniversidad(perfilPendiente.universidad);
 
-  if (perfilPendiente.fotoBase64 !== undefined &&
-      perfilPendiente.fotoBase64 !== perfil.fotoBase64) {
-    cambiarFotografia(perfilPendiente.fotoBase64);
-    // Sincronizar también el preview del modal
-    sincronizarPreviewFoto(perfilPendiente.fotoBase64);
+  if (perfilPendiente.profileImage !== undefined &&
+      perfilPendiente.profileImage !== perfil.profileImage) {
+    cambiarFotografia(perfilPendiente.profileImage);
+    sincronizarPreviewFoto(perfilPendiente.profileImage);
   }
 
   cerrarModal('modalConfirm');
@@ -199,6 +218,9 @@ function guardarPerfil() {
 
   // Persistir para que no se pierdan cambios al recargar dashboard
   guardarUsuarioEnLocalStorage();
+  
+  // Guardar en Firebase
+  guardarPerfilEnFirebase();
 
   // Limpiar pendiente
   perfilPendiente = {};
@@ -220,10 +242,10 @@ function actualizarIniciales(nombre) {
   });
 }
 
-function sincronizarPreviewFoto(base64) {
+function sincronizarPreviewFoto(imageName) {
   const prev = dom.previewPhoto();
-  if (base64) {
-    prev.src = base64;
+  if (imageName) {
+    prev.src = `../assets/user_icons/${imageName}`;
     prev.classList.add('visible');
   } else {
     prev.src = '';
@@ -262,6 +284,7 @@ function guardarUsuarioEnLocalStorage() {
     university: perfil.universidad,
     universityName: perfil.uniCompleto,
     universityImage: perfil.uniImage,
+    profileImage: perfil.profileImage,
     firstName,
     lastName,
   };
@@ -283,10 +306,13 @@ function abrirModalAjustes() {
   });
 
   // Sincronizar preview de foto
-  sincronizarPreviewFoto(perfil.fotoBase64);
+  sincronizarPreviewFoto(perfil.profileImage);
 
   // Resetear pendiente
   perfilPendiente = {};
+
+  // Renderizar galería
+  renderizarGaleria();
 
   abrirModal('modalAjustes');
 }
@@ -343,6 +369,81 @@ function renderizarUniversidades() {
   `;
 }
 
+function renderizarGaleria() {
+  const grid = dom.galleryGrid();
+  if (!grid) return;
+
+  grid.innerHTML = imagenesPerfil
+    .map(img => `
+      <div class="gallery-item ${perfil.profileImage === img ? 'selected' : ''}" data-image="${img}">
+        <img src="../assets/user_icons/${img}" alt="${img}" />
+        <div class="gallery-item-overlay">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="gallery-checkmark">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+        </div>
+      </div>
+    `)
+    .join('');
+
+  // Agregar event listeners a cada imagen
+  grid.querySelectorAll('.gallery-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const imageName = item.dataset.image;
+      seleccionarImagen(imageName);
+    });
+  });
+}
+
+function seleccionarImagen(imageName) {
+  // Marcar la imagen como seleccionada en perfilPendiente
+  perfilPendiente.profileImage = imageName;
+  
+  // Actualizar preview en el modal de ajustes
+  sincronizarPreviewFoto(imageName);
+  
+  // Actualizar visual de la galería
+  const grid = dom.galleryGrid();
+  if (grid) {
+    grid.querySelectorAll('.gallery-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+    grid.querySelector(`[data-image="${imageName}"]`)?.classList.add('selected');
+  }
+  
+  // Cerrar modal de galería
+  cerrarModal('modalGallery');
+}
+
+async function guardarPerfilEnFirebase() {
+  try {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      console.warn('No userId found, skipping Firebase save');
+      return;
+    }
+
+    const updates = {
+      name: perfil.nombre,
+      email: perfil.correo,
+      university: perfil.universidad,
+      universityName: perfil.uniCompleto,
+      universityImage: perfil.uniImage,
+      profileImage: perfil.profileImage,
+      updatedAt: new Date().toISOString()
+    };
+
+    const result = await updateUserProfile(userId, updates);
+    if (result.success) {
+      console.log('Perfil guardado en Firebase correctamente');
+    } else {
+      console.error('Error al guardar en Firebase:', result.error);
+    }
+  } catch (error) {
+    console.error('Error en guardarPerfilEnFirebase:', error);
+  }
+}
+
 // ════════════════════════════════════════════════
 //  EVENTS
 // ════════════════════════════════════════════════
@@ -360,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
       perfil.universidad = String(user.university || user.universidad || perfil.universidad || 'UNAM').trim();
       perfil.uniCompleto = String(user.universityName || user.uniCompleto || perfil.uniCompleto || 'Universidad Nacional Autónoma de México').trim();
       perfil.uniImage = String(user.universityImage || user.uniImage || perfil.uniImage || 'UNAM.png').trim();
+      perfil.profileImage = user.profileImage || null;
     } catch (error) {
       console.warn('No se pudo parsear currentUser, se usarán valores por defecto.', error);
     }
@@ -375,6 +477,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Actualizar iniciales del avatar
   actualizarIniciales(perfil.nombre);
+
+  // Cargar imagen de perfil si existe
+  if (perfil.profileImage) {
+    cambiarFotografia(perfil.profileImage);
+  }
 
   renderizarTemas();
   renderizarUniversidades();
@@ -396,7 +503,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputNombre = dom.inputNombre();
   const inputCorreo = dom.inputCorreo();
   const inputUniversidad = dom.inputUniversidad();
-  const inputFoto = dom.inputFoto();
 
   inputNombre?.addEventListener('change', (e) => {
     perfilPendiente.nombre = e.target.value;
@@ -410,24 +516,24 @@ document.addEventListener('DOMContentLoaded', () => {
     perfilPendiente.universidad = e.target.value;
   });
 
-  // ── Foto ────
-  inputFoto?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const base64 = evt.target.result;
-        perfilPendiente.fotoBase64 = base64;
-        sincronizarPreviewFoto(base64);
-      };
-      reader.readAsDataURL(file);
+  // ── Galería de imágenes ────
+  document.getElementById('btnOpenGallery')?.addEventListener('click', () => {
+    abrirModal('modalGallery');
+  });
+
+  document.getElementById('modalGalleryClose')?.addEventListener('click', () => {
+    cerrarModal('modalGallery');
+  });
+
+  dom.modalGallery()?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      cerrarModal('modalGallery');
     }
   });
 
   document.getElementById('btnRemovePhoto')?.addEventListener('click', () => {
-    perfilPendiente.fotoBase64 = null;
+    perfilPendiente.profileImage = null;
     sincronizarPreviewFoto(null);
-    if (inputFoto) inputFoto.value = '';
   });
 
   // ── Cerrar modales al hacer click afuera ────
