@@ -7,11 +7,11 @@
 
 // ── Estado global del perfil ──────────────────
 const perfil = {
-  nombre:       'Usuario',
-  correo:       'usuario@correo.com',
-  universidad:  'UNAM',
-  uniCompleto:  'Universidad Nacional Autónoma de México',
-  fotoBase64:   null,   // null = usa iniciales
+  nombre: 'Usuario',
+  correo: 'usuario@correo.com',
+  universidad: 'UNAM',
+  uniCompleto: 'Universidad Nacional Autónoma de México',
+  fotoBase64: null,   // null = usa iniciales
 };
 
 // Copia temporal mientras el usuario edita (antes de confirmar)
@@ -20,32 +20,32 @@ let perfilPendiente = {};
 // ── Referencias al DOM ────────────────────────
 const dom = {
   // topbar
-  displayName:     () => document.getElementById('displayName'),
-  displayEmail:    () => document.getElementById('displayEmail'),
-  greetingName:    () => document.getElementById('greetingName'),
-  avatarInitials:  () => document.getElementById('avatarInitials'),
-  avatarPhoto:     () => document.getElementById('avatarPhoto'),
+  displayName: () => document.getElementById('displayName'),
+  displayEmail: () => document.getElementById('displayEmail'),
+  greetingName: () => document.getElementById('greetingName'),
+  avatarInitials: () => document.getElementById('avatarInitials'),
+  avatarPhoto: () => document.getElementById('avatarPhoto'),
 
   // uni panel
-  uniLogo:  () => document.getElementById('uniLogo'),
-  uniName:  () => document.getElementById('uniName'),
-  uniSub:   () => document.getElementById('uniSub'),
+  uniLogo: () => document.getElementById('uniLogo'),
+  uniName: () => document.getElementById('uniName'),
+  uniSub: () => document.getElementById('uniSub'),
 
   // modal ajustes
-  modalAjustes:    () => document.getElementById('modalAjustes'),
-  inputNombre:     () => document.getElementById('inputNombre'),
-  inputCorreo:     () => document.getElementById('inputCorreo'),
-  inputUniversidad:() => document.getElementById('inputUniversidad'),
-  inputFoto:       () => document.getElementById('inputFoto'),
+  modalAjustes: () => document.getElementById('modalAjustes'),
+  inputNombre: () => document.getElementById('inputNombre'),
+  inputCorreo: () => document.getElementById('inputCorreo'),
+  inputUniversidad: () => document.getElementById('inputUniversidad'),
+  inputFoto: () => document.getElementById('inputFoto'),
   previewInitials: () => document.getElementById('previewInitials'),
-  previewPhoto:    () => document.getElementById('previewPhoto'),
+  previewPhoto: () => document.getElementById('previewPhoto'),
 
   // modal confirmación
-  modalConfirm:    () => document.getElementById('modalConfirm'),
-  confirmChanges:  () => document.getElementById('confirmChanges'),
+  modalConfirm: () => document.getElementById('modalConfirm'),
+  confirmChanges: () => document.getElementById('confirmChanges'),
 
   // toast
-  toast:           () => document.getElementById('toast'),
+  toast: () => document.getElementById('toast'),
 };
 
 // ════════════════════════════════════════════════
@@ -60,7 +60,7 @@ function cambiarNombre(nombre) {
   const n = nombre.trim();
   if (!n) return;
   perfil.nombre = n;
-  dom.displayName().textContent  = n;
+  dom.displayName().textContent = n;
   dom.greetingName().textContent = n;
   actualizarIniciales(n);
 }
@@ -87,7 +87,7 @@ function cambiarUniversidad(valor) {
   perfil.uniCompleto = completo;
   dom.uniLogo().textContent = sigla;
   dom.uniName().textContent = sigla;
-  dom.uniSub().textContent  = completo;
+  dom.uniSub().textContent = completo;
 }
 
 /**
@@ -116,19 +116,19 @@ function detectarCambios() {
   const cambios = [];
 
   if (perfilPendiente.nombre !== undefined &&
-      perfilPendiente.nombre !== perfil.nombre)
+    perfilPendiente.nombre !== perfil.nombre)
     cambios.push({ key: 'Nombre', val: perfilPendiente.nombre });
 
   if (perfilPendiente.correo !== undefined &&
-      perfilPendiente.correo !== perfil.correo)
+    perfilPendiente.correo !== perfil.correo)
     cambios.push({ key: 'Correo', val: perfilPendiente.correo });
 
   if (perfilPendiente.universidad !== undefined &&
-      perfilPendiente.universidad !== perfil.universidad)
+    perfilPendiente.universidad !== perfil.universidad)
     cambios.push({ key: 'Universidad', val: perfilPendiente.universidad });
 
   if (perfilPendiente.fotoBase64 !== undefined &&
-      perfilPendiente.fotoBase64 !== perfil.fotoBase64)
+    perfilPendiente.fotoBase64 !== perfil.fotoBase64)
     cambios.push({
       key: 'Foto',
       val: perfilPendiente.fotoBase64 ? 'Nueva imagen cargada' : 'Eliminada',
@@ -173,19 +173,19 @@ function guardarPerfil() {
 
   // Aplicar cada cambio
   if (perfilPendiente.nombre !== undefined &&
-      perfilPendiente.nombre !== perfil.nombre)
+    perfilPendiente.nombre !== perfil.nombre)
     cambiarNombre(perfilPendiente.nombre);
 
   if (perfilPendiente.correo !== undefined &&
-      perfilPendiente.correo !== perfil.correo)
+    perfilPendiente.correo !== perfil.correo)
     cambiarCorreo(perfilPendiente.correo);
 
   if (perfilPendiente.universidad !== undefined &&
-      perfilPendiente.universidad !== perfil.universidad)
+    perfilPendiente.universidad !== perfil.universidad)
     cambiarUniversidad(perfilPendiente.universidad);
 
   if (perfilPendiente.fotoBase64 !== undefined &&
-      perfilPendiente.fotoBase64 !== perfil.fotoBase64) {
+    perfilPendiente.fotoBase64 !== perfil.fotoBase64) {
     cambiarFotografia(perfilPendiente.fotoBase64);
     // Sincronizar también el preview del modal
     sincronizarPreviewFoto(perfilPendiente.fotoBase64);
@@ -242,8 +242,8 @@ function mostrarToast(msg) {
 
 // ── Pre-rellenar el modal con los valores actuales ──
 function abrirModalAjustes() {
-  dom.inputNombre().value      = perfil.nombre;
-  dom.inputCorreo().value      = perfil.correo;
+  dom.inputNombre().value = perfil.nombre;
+  dom.inputCorreo().value = perfil.correo;
 
   // Seleccionar la opción correcta en el <select>
   const sel = dom.inputUniversidad();
@@ -267,10 +267,10 @@ function abrirModalAjustes() {
 // ════════════════════════════════════════════════
 const temas = [
   { nombre: 'Matemáticas', pct: 82, nivel: 'high' },
-  { nombre: 'Español',     pct: 67, nivel: 'mid'  },
-  { nombre: 'Historia',    pct: 45, nivel: 'low'  },
-  { nombre: 'Ciencias',    pct: 71, nivel: 'mid'  },
-  { nombre: 'Geografía',   pct: 38, nivel: 'low'  },
+  { nombre: 'Español', pct: 67, nivel: 'mid' },
+  { nombre: 'Historia', pct: 45, nivel: 'low' },
+  { nombre: 'Ciencias', pct: 71, nivel: 'mid' },
+  { nombre: 'Geografía', pct: 38, nivel: 'low' },
 ];
 
 function renderizarTemas() {
@@ -300,7 +300,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Abrir modal de ajustes
   document.getElementById('btnAjustes').addEventListener('click', abrirModalAjustes);
-  document.getElementById('userInfoBtn').addEventListener('click', abrirModalAjustes);
 
   // Cerrar modal ajustes
   document.getElementById('modalClose').addEventListener('click', () => cerrarModal('modalAjustes'));
@@ -314,8 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Guardar (abre confirmación)
   document.getElementById('btnGuardar').addEventListener('click', () => {
     // Recoger valores del formulario en perfilPendiente
-    perfilPendiente.nombre      = dom.inputNombre().value.trim();
-    perfilPendiente.correo      = dom.inputCorreo().value.trim();
+    perfilPendiente.nombre = dom.inputNombre().value.trim();
+    perfilPendiente.correo = dom.inputCorreo().value.trim();
     perfilPendiente.universidad = dom.inputUniversidad().value.split('|')[0] || perfil.universidad;
 
     // La foto ya se asigna en tiempo real al seleccionar archivo
