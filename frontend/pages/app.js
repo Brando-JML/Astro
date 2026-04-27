@@ -527,6 +527,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderizarTemas();
   renderizarUniversidades();
 
+  // ── Tarjeta Practicar ────
+  const cardPracticar = document.querySelector('.main-grid .card.accent');
+  if (cardPracticar) {
+    cardPracticar.addEventListener('click', () => {
+      window.location.href = 'test.html';
+    });
+    cardPracticar.style.cursor = 'pointer';
+  }
+
   // ── Modal Ajustes ────
   document.getElementById('btnAjustes')?.addEventListener('click', abrirModalAjustes);
   document.getElementById('modalClose')?.addEventListener('click', () => cerrarModal('modalAjustes'));
