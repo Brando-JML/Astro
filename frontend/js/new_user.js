@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const passwordInput = document.getElementById('registerPassword');
     const confirmPasswordInput = document.getElementById('confirmPassword');
     const universitySelect = document.getElementById('universitySelect');
+    const areaSelect = document.getElementById('areaSelect');
     const togglePasswordBtn = document.getElementById('toggleRegisterPassword');
     const toggleIcon = document.getElementById('toggleRegisterIcon');
     const toggleConfirmPasswordBtn = document.getElementById('toggleConfirmPassword');
@@ -49,6 +50,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Handle university change to populate areas dropdown
+    universitySelect.addEventListener('change', function() {
+        const selectedUniversity = universitySelect.value.trim();
+        
+        if (!selectedUniversity) {
+            // Reset area select if no university is selected
+            areaSelect.innerHTML = '<option value="">-- Primero selecciona una universidad --</option>';
+            areaSelect.disabled = true;
+        } else {
+            // Get areas for the selected university
+            const areas = getAreasForUniversity(selectedUniversity);
+            
+            if (areas && areas.length > 0) {
+                // Build options for area select
+                let areaHTML = '<option value="">-- Selecciona un área --</option>';
+                areas.forEach(area => {
+                    areaHTML += `<option value="${area.code}|${area.name}">${area.name}</option>`;
+                });
+                
+                areaSelect.innerHTML = areaHTML;
+                areaSelect.disabled = false;
+            } else {
+                areaSelect.innerHTML = '<option value="">No hay áreas disponibles</option>';
+                areaSelect.disabled = true;
+            }
+        }
+        
+        // Clear area selection when university changes
+        areaSelect.value = '';
+    });
+
     // Handle form submission for account creation
     registrationForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -60,6 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const password = passwordInput.value.trim();
         const confirmPassword = confirmPasswordInput.value.trim();
         const university = universitySelect.value.trim();
+        const area = areaSelect.value.trim();
         const termsAccepted = termsCheckbox.checked;
         
         // Clear previous messages
@@ -67,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
         registrationMessage.className = 'registration-message';
         
         // Validate all fields are filled
-        if (!firstName || !lastName || !email || !password || !confirmPassword || !university) {
+        if (!firstName || !lastName || !email || !password || !confirmPassword || !university || !area) {
             showMessage('Por favor completa todos los campos', 'error');
             return;
         }
@@ -98,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Create new user account with Firebase
-        await createUserAccountWithFirebase(firstName, lastName, email, password, university);
+        await createUserAccountWithFirebase(firstName, lastName, email, password, university, area);
     });
 
     // Function to display success or error messages
@@ -122,17 +155,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Function to create new user account with Firebase
-    async function createUserAccountWithFirebase(firstName, lastName, email, password, university) {
-        // Parse university data
-        const [uniCode, uniName, uniImage] = university.split('|');
+    async function createUserAccountWithFirebase(firstName, lastName, email, password, university, area) {
+        // Get university info
+        const uniInfo = getUniversityInfo(university);
+        
+        // Parse area data
+        const [areaCode, areaName] = area.split('|');
         
         // Register user with Firebase
         const result = await registerUser(email, password, {
             firstName: firstName,
             lastName: lastName,
-            university: uniCode,
-            universityName: uniName,
-            universityImage: uniImage
+            university: university,
+            universityName: uniInfo.name,
+            universityImage: uniInfo.image,
+            area: areaCode,
+            areaName: areaName
         });
 
         if (result.success) {
@@ -144,6 +182,8 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmPasswordInput.type = 'password';
             toggleIcon.textContent = 'Ver';
             toggleConfirmIcon.textContent = 'Ver';
+            areaSelect.innerHTML = '<option value="">-- Primero selecciona una universidad --</option>';
+            areaSelect.disabled = true;
             
             // Redirect to login page after delay
             setTimeout(function() {

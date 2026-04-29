@@ -125,10 +125,29 @@
             </div>
             <span class="uni-chevron">›</span>
           </div>
+          <button class="btn-cambiar" id="btnCambiarUni">Cambiar universidad →</button>
+        </div>
+      </div>
+
+      <!-- Panel área -->
+      <div class="uni-panel">
+        <div class="panel-header">
+          <h3>Área Seleccionada</h3>
+          <span class="badge">Activa</span>
+        </div>
+        <div class="uni-body">
+          <div class="uni-selector" id="areaSelector">
+            <div class="uni-logo" id="areaLogo">ÁREA</div>
+            <div class="uni-info">
+              <div class="uni-name" id="areaName">Área Académica</div>
+              <div class="uni-sub" id="areaSub">Universidad</div>
+            </div>
+            <span class="uni-chevron">›</span>
+          </div>
           <div class="uni-meta">
             <div class="uni-stat">
               <div class="uni-stat-num">4</div>
-              <div class="uni-stat-label">Áreas</div>
+              <div class="uni-stat-label">Temas</div>
             </div>
             <div class="uni-stat">
               <div class="uni-stat-num">320</div>
@@ -143,17 +162,8 @@
               <div class="uni-stat-label">Sesiones</div>
             </div>
           </div>
-          <button class="btn-cambiar" id="btnCambiarUni">Cambiar universidad →</button>
+          <button class="btn-cambiar" id="btnCambiarArea">Cambiar área →</button>
         </div>
-      </div>
-
-      <!-- Panel universidades lista -->
-      <div class="uni-list-panel">
-        <div class="panel-header">
-          <h3>Mi Universidad</h3>
-          <span class="badge">Seleccionada</span>
-        </div>
-        <div class="universidades-list" id="universidadesList"></div>
       </div>
 
     </div>
@@ -223,15 +233,23 @@
           <label class="field-label" for="inputUniversidad">Universidad</label>
           <select id="inputUniversidad" class="field-select">
             <option value="">— Selecciona una universidad —</option>
-            <option value="UNAM|Universidad Nacional Autónoma de México|UNAM.png">UNAM</option>
-            <option value="IPN|Instituto Politécnico Nacional|POLITECNICO.png">IPN</option>
-            <option value="UAM|Universidad Autónoma Metropolitana|UAM.png">UAM</option>
-            <option value="BUAP|Benemérita Universidad Autónoma de Puebla|BUAP.png">BUAP</option>
-            <option value="TECNM|Instituto Tecnológico Nacional de México|TECNOLOGICO.png">TECNM</option>
-            <option value="UAGRO|Universidad Autónoma de Guerrero|UAGRO.png">UAGRO</option>
-            <option value="CHAPINGO|Universidad Autónoma Chapingo|CHAPINGO.png">CHAPINGO</option>
-            <option value="UAEM|Universidad Autónoma del Estado de México|UAEM.png">UAEM</option>
-            <option value="UDG|Universidad de Guadalajara|UAG.png">UDG</option>
+            <option value="UNAM">UNAM</option>
+            <option value="IPN">IPN</option>
+            <option value="UAM">UAM</option>
+            <option value="BUAP">BUAP</option>
+            <option value="TECNM">TECNM</option>
+            <option value="UAGRO">UAGRO</option>
+            <option value="CHAPINGO">CHAPINGO</option>
+            <option value="UAEM">UAEM</option>
+            <option value="UDG">UDG</option>
+          </select>
+        </div>
+
+        <!-- Área Académica -->
+        <div class="field-group">
+          <label class="field-label" for="inputArea">Área Académica</label>
+          <select id="inputArea" class="field-select" disabled>
+            <option value="">— Primero selecciona una universidad —</option>
           </select>
         </div>
 
@@ -282,6 +300,7 @@
   <!-- Config y funciones de Firebase -->
   <script src="../js/firebase-config.js"></script>
   <script src="../js/auth-functions.js"></script>
+  <script src="../js/universities-areas.js"></script>
 
   <!-- App principal -->
   <script src="app.js"></script>

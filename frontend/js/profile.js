@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const profileLastNameInput = document.getElementById('profileLastName');
     const profileEmailInput = document.getElementById('profileEmail');
     const profileUniversitySelect = document.getElementById('profileUniversitySelect');
+    const profileAreaSelect = document.getElementById('profileAreaSelect');
     
     const newEmailInput = document.getElementById('newEmail');
     const newPasswordInput = document.getElementById('newPassword');
@@ -64,25 +65,36 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         
         const university = profileUniversitySelect.value.trim();
+        const area = profileAreaSelect.value.trim();
         
         if (!university) {
             showMessage('universityMessage', 'Por favor selecciona una universidad', 'error');
             return;
         }
 
-        // Parse university data
-        const [uniCode, uniName, uniImage] = university.split('|');
+        if (!area) {
+            showMessage('universityMessage', 'Por favor selecciona un área académica', 'error');
+            return;
+        }
+
+        // Get university info
+        const uniInfo = getUniversityInfo(university);
+        
+        // Parse area data
+        const [areaCode, areaName] = area.split('|');
         
         const userId = localStorage.getItem('userId');
         const result = await updateUserProfile(userId, {
-            university: uniCode,
-            universityName: uniName,
-            universityImage: uniImage
+            university: university,
+            universityName: uniInfo.name,
+            universityImage: uniInfo.image,
+            area: areaCode,
+            areaName: areaName
         });
 
         if (result.success) {
             showMessage('universityMessage', result.message, 'success');
-            updateUniversityPreview(uniImage, uniName);
+            updateUniversityPreview(uniInfo.image, uniInfo.name);
         } else {
             showMessage('universityMessage', result.message, 'error');
         }
@@ -179,12 +191,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // University selection change - update preview
+    // University selection change - update areas and preview
     profileUniversitySelect.addEventListener('change', function() {
-        if (this.value) {
-            const [uniCode, uniName, uniImage] = this.value.split('|');
-            updateUniversityPreview(uniImage, uniName);
+        const selectedUniversity = this.value.trim();
+        
+        if (!selectedUniversity) {
+            // Reset area select if no university is selected
+            profileAreaSelect.innerHTML = '<option value="">-- Selecciona un área --</option>';
+            profileAreaSelect.disabled = true;
+        } else {
+            // Get areas for the selected university
+            const areas = getAreasForUniversity(selectedUniversity);
+            
+            if (areas && areas.length > 0) {
+                // Build options for area select
+                let areaHTML = '<option value="">-- Selecciona un área --</option>';
+                areas.forEach(area => {
+                    areaHTML += `<option value="${area.code}|${area.name}">${area.name}</option>`;
+                });
+                
+                profileAreaSelect.innerHTML = areaHTML;
+                profileAreaSelect.disabled = false;
+            } else {
+                profileAreaSelect.innerHTML = '<option value="">No hay áreas disponibles</option>';
+                profileAreaSelect.disabled = true;
+            }
         }
+        
+        // Update preview
+        const uniInfo = getUniversityInfo(selectedUniversity);
+        if (uniInfo) {
+            updateUniversityPreview(uniInfo.image, uniInfo.name);
+        }
+        
+        // Clear area selection when university changes
+        profileAreaSelect.value = '';
     });
 
     // Logout button
@@ -249,10 +290,30 @@ async function loadUserProfile() {
         document.getElementById('profileEmail').value = userProfile.email || '';
         
         // Populate university
-        if (userProfile.university && userProfile.universityName && userProfile.universityImage) {
-            const universityValue = `${userProfile.university}|${userProfile.universityName}|${userProfile.universityImage}`;
-            document.getElementById('profileUniversitySelect').value = universityValue;
-            updateUniversityPreview(userProfile.universityImage, userProfile.universityName);
+        if (userProfile.university) {
+            document.getElementById('profileUniversitySelect').value = userProfile.university;
+            
+            // Populate areas for the selected university
+            const areas = getAreasForUniversity(userProfile.university);
+            if (areas && areas.length > 0) {
+                let areaHTML = '<option value="">-- Selecciona un área --</option>';
+                areas.forEach(area => {
+                    areaHTML += `<option value="${area.code}|${area.name}">${area.name}</option>`;
+                });
+                document.getElementById('profileAreaSelect').innerHTML = areaHTML;
+                document.getElementById('profileAreaSelect').disabled = false;
+                
+                // Set the current area if it exists
+                if (userProfile.area && userProfile.areaName) {
+                    document.getElementById('profileAreaSelect').value = `${userProfile.area}|${userProfile.areaName}`;
+                }
+            }
+            
+            // Update preview
+            const uniInfo = getUniversityInfo(userProfile.university);
+            if (uniInfo) {
+                updateUniversityPreview(uniInfo.image, uniInfo.name);
+            }
         }
     }
 }

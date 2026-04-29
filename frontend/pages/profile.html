@@ -105,15 +105,28 @@
                                 required
                             >
                                 <option value="">-- Selecciona una universidad --</option>
-                                <option value="UNAM|Universidad Nacional Autónoma de México|UNAM.png">Universidad Nacional Autónoma de México</option>
-                                <option value="IPN|Instituto Politécnico Nacional|POLITECNICO.png">Instituto Politécnico Nacional</option>
-                                <option value="UAM|Universidad Autónoma Metropolitana|UAM.png">Universidad Autónoma Metropolitana</option>
-                                <option value="BUAP|Benemérita Universidad Autónoma de Puebla|BUAP.png">Benemérita Universidad Autónoma de Puebla</option>
-                                <option value="TECNM|Instituto Tecnológico Nacional de México|TECNOLOGICO.png">Instituto Tecnológico Nacional de México</option>
-                                <option value="UAGRO|Universidad Autónoma de Guerrero|UAGRO.png">Universidad Autónoma de Guerrero</option>
-                                <option value="CHAPINGO|Universidad Autónoma Chapingo|CHAPINGO.png">Universidad Autónoma Chapingo</option>
-                                <option value="UAEM|Universidad Autónoma del Estado de México|UAEM.png">Universidad Autónoma del Estado de México</option>
-                                <option value="UDG|Universidad de Guadalajara|UAG.png">Universidad de Guadalajara</option>
+                                <option value="UNAM">Universidad Nacional Autónoma de México</option>
+                                <option value="IPN">Instituto Politécnico Nacional</option>
+                                <option value="UAM">Universidad Autónoma Metropolitana</option>
+                                <option value="BUAP">Benemérita Universidad Autónoma de Puebla</option>
+                                <option value="TECNM">Instituto Tecnológico Nacional de México</option>
+                                <option value="UAGRO">Universidad Autónoma de Guerrero</option>
+                                <option value="CHAPINGO">Universidad Autónoma Chapingo</option>
+                                <option value="UAEM">Universidad Autónoma del Estado de México</option>
+                                <option value="UDG">Universidad de Guadalajara</option>
+                            </select>
+                        </div>
+
+                        <!-- Area selection field (dynamically populated based on university) -->
+                        <div class="form-group">
+                            <label for="profileAreaSelect">Área Académica</label>
+                            <select 
+                                id="profileAreaSelect" 
+                                name="area"
+                                class="form-control"
+                                required
+                            >
+                                <option value="">-- Selecciona un área --</option>
                             </select>
                         </div>
 
@@ -129,7 +142,7 @@
                         <div id="universityMessage" class="profile-message"></div>
 
                         <!-- Submit button -->
-                        <button type="submit" class="btn-profile-save">Guardar Universidad</button>
+                        <button type="submit" class="btn-profile-save">Guardar Cambios</button>
                     </form>
                 </div>
 
@@ -234,6 +247,8 @@
     
     <!-- Firebase Configuration -->
     <script src="../js/firebase-config.js"></script>
+    <!-- Universities and Areas Configuration -->
+    <script src="../js/universities-areas.js"></script>
     <!-- Firebase Authentication Functions -->
     <script src="../js/auth-functions.js"></script>
     <!-- Profile Page Script -->

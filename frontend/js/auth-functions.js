@@ -7,7 +7,7 @@
  * Register a new user with email and password
  * @param {string} email - User email
  * @param {string} password - User password
- * @param {object} userProfile - User profile data (firstName, lastName, university, etc.)
+ * @param {object} userProfile - User profile data (firstName, lastName, university, universityName, universityImage, area, areaName, etc.)
  * @returns {Promise} Registration promise
  */
 async function registerUser(email, password, userProfile) {
@@ -24,6 +24,8 @@ async function registerUser(email, password, userProfile) {
             university: userProfile.university,
             universityName: userProfile.universityName,
             universityImage: userProfile.universityImage,
+            area: userProfile.area || null,
+            areaName: userProfile.areaName || null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });
