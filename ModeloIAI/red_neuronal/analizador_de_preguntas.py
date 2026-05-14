@@ -1,37 +1,41 @@
 import torch
-import torch.nn as nn 
+import torch.nn as nn
 from transformers import AutoModel
+from torchvision import models
 
-class ExamModel(nn.Module):
-    def __init__(self, model_name="distilbert-base-uncased", num_universidades=10):
+class MultimodalExamModel(nn.Module):
+    def __init__(self, num_universidades):
         super().__init__()
+        # 1. Encoder de Texto (BERT)
+        self.bert = AutoModel.from_pretrained("dccuchile/bert-base-spanish-wwm-uncased")
         
-        self.bert = AutoModel.from_pretrained(model_name)
-        hidden_size = self.bert.config.hidden_size
+        # 2. Encoder de Imagen (ResNet-18 para ligereza)
+        resnet = models.resnet18(pretrained=True)
+        self.visual_encoder = nn.Sequential(*list(resnet.children())[:-1]) # Quitamos la última capa
         
-        # Cabezas
-        self.dificultad = nn.Linear(hidden_size, 1)
-        self.universidad = nn.Linear(hidden_size, num_universidades)
-        self.probabilidad = nn.Linear(hidden_size, 1)
+        # 3. Capas de Fusión
+        # BERT (768) + ResNet (512) = 1280
+        self.fusion = nn.Linear(768 + 512, 512)
         
-        self.sigmoid = nn.Sigmoid()
+        # Cabezas de salida
+        self.dificultad = nn.Linear(512, 1)
+        self.universidad = nn.Linear(512, num_universidades)
 
-    def forward(self, input_ids, attention_mask):
-        outputs = self.bert(
-            input_ids=input_ids,
-            attention_mask=attention_mask
-        )
+    def forward(self, input_ids, attention_mask, pixel_values=None):
+        # Procesar texto
+        text_outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        text_features = text_outputs.last_hidden_state[:, 0] # CLS Token
         
-        cls_output = outputs.last_hidden_state[:, 0]
+        # Procesar imagen (si existe)
+        if pixel_values is not None:
+            image_features = self.visual_encoder(pixel_values)
+            image_features = image_features.view(image_features.size(0), -1)
+        else:
+            # Si no hay imagen, enviamos ceros
+            image_features = torch.zeros(text_features.size(0), 512).to(text_features.device)
+            
+        # Fusionar ambos mundos
+        combined = torch.cat((text_features, image_features), dim=1)
+        x = torch.relu(self.fusion(combined))
         
-        dificultad = self.dificultad(cls_output)
-        universidad = self.universidad(cls_output)
-        probabilidad = self.sigmoid(self.probabilidad(cls_output))
-        
-        return dificultad, universidad, probabilidad
-
-        loss = (
-    mse(dificultad_pred, dificultad_real) +
-    cross_entropy(universidad_pred, universidad_real) +
-    bce(prob_pred, prob_real)
-)
+        return self.dificultad(x), self.universidad(x)

@@ -3,21 +3,23 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
 )
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import datetime
 import os
 
+# Colores:
 CRYSTAL_AZUL     = colors.HexColor("#1565C0")
 CRYSTAL_AZUL_OSC = colors.HexColor("#0D47A1")
 CRYSTAL_GRIS     = colors.HexColor("#F5F5F5")
 CRYSTAL_NEGRO    = colors.HexColor("#212121")
 CRYSTAL_ROJO     = colors.HexColor("#C62828")
 
-
+# Método para exportar a PDF el examen:
 def exportar_pdf(examen, institucion, nombre_archivo="examen.pdf",
                  incluir_respuestas=False, nivel_dificultad="Mixto"):
+    
     """
     Genera un PDF con formato real de examen de admisión.
     
@@ -35,6 +37,8 @@ def exportar_pdf(examen, institucion, nombre_archivo="examen.pdf",
     )
 
     styles = getSampleStyleSheet()
+
+    question_style = styles['Normal']
 
     # ── Estilos personalizados ──────────────────────────────────────
     titulo_style = ParagraphStyle(
@@ -164,6 +168,7 @@ def exportar_pdf(examen, institucion, nombre_archivo="examen.pdf",
         "inst_titulo", parent=styles["Normal"],
         fontSize=9, fontName="Helvetica-Bold", textColor=CRYSTAL_AZUL, spaceAfter=2
     )))
+
     for inst in instrucciones:
         story.append(Paragraph(inst, instruccion_style))
     story.append(HRFlowable(width="100%", thickness=0.5,
@@ -171,23 +176,48 @@ def exportar_pdf(examen, institucion, nombre_archivo="examen.pdf",
 
     # ── PREGUNTAS ───────────────────────────────────────────────────
     for i, p in enumerate(examen, 1):
-        tema = p.get("tema", "")
-        if tema:
-            story.append(Paragraph(f"Tema: {tema}", tema_style))
+        # 1. Texto de la pregunta
+        texto_pregunta = f"<b>{i}.</b> {p.get('pregunta', 'Pregunta sin texto')}"
+        story.append(Paragraph(texto_pregunta, question_style))
+        
+        # 2. INTEGRACIÓN DE IMAGEN (Punto 1)
+        img_path = p.get("imagen_path")
+        if img_path and os.path.exists(img_path):
+            try:
+                # Cargamos la imagen
+                img = Image(img_path)
+                
+                # Definimos límites máximos (el alto máximo suele ser ~18-20cm en hoja carta)
+                ancho_max = 16 * cm
+                alto_max = 12 * cm  # <--- Agregamos un límite de altura
+                
+                # Obtener tamaño real
+                iw, ih = img.wrap(0, 0)
+                
+                # Calcular factor de escala para que quepa en AMBOS límites
+                # Buscamos el ratio más pequeño para no deformar
+                ratio = min(ancho_max / float(iw), alto_max / float(ih))
+                
+                # Si la imagen es más grande que cualquiera de los límites, la redimensionamos
+                if iw > ancho_max or ih > alto_max:
+                    img.drawWidth = iw * ratio
+                    img.drawHeight = ih * ratio
+                
+                img.hAlign = 'CENTER'
+                story.append(Spacer(1, 0.2 * cm))
+                story.append(img)
+                story.append(Spacer(1, 0.5 * cm))
 
-        story.append(Paragraph(f"{i}.  {p['pregunta']}", pregunta_style))
+            except Exception as e:
+                print(f"⚠️ Error al insertar imagen {img_path}: {e}")
 
+        # 3. Opciones
         opciones = p.get("opciones", [])
-        # opciones puede ser lista o string separado por ";"
-        if isinstance(opciones, str):
-            opciones = [o.strip() for o in opciones.split(";") if o.strip()]
-
-        letras = ["A", "B", "C", "D", "E"]
-        for j, opcion in enumerate(opciones):
-            letra = letras[j] if j < len(letras) else str(j+1)
-            story.append(Paragraph(f"{letra})  {opcion}", opcion_style))
-
-        story.append(Spacer(1, 0.15*cm))
+        for j, opt in enumerate(opciones):
+            letra = chr(65 + j)
+            story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;{letra}) {opt}", styles['Normal']))
+        
+        story.append(Spacer(1, 0.4 * cm))
 
     # ── HOJA DE RESPUESTAS (opcional) ──────────────────────────────
     if incluir_respuestas:
@@ -197,6 +227,8 @@ def exportar_pdf(examen, institucion, nombre_archivo="examen.pdf",
                                 ParagraphStyle("clave_titulo", parent=styles["Normal"],
                                     fontSize=11, fontName="Helvetica-Bold",
                                     textColor=CRYSTAL_ROJO, alignment=TA_CENTER, spaceAfter=8)))
+        
+        respuesta_style = ParagraphStyle('RespStyle', parent=styles['Normal'], fontSize=10)
 
         # Tabla de respuestas en 4 columnas
         filas_resp = []

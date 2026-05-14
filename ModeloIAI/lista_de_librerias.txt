@@ -1,4 +1,13 @@
-1.- PyTorch (torch)
-2.- Pandas (pandas)
-3.- ApiKEY GroqCloude (Llama3): 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
-4.- ApiKEY Gemini: AIzaSyASxw34TqShwHxSOa-hN53JwjLH32kgI18
+1.PyTorch (torch)
+2.Pandas (pandas)
+3.ApiKEY GroqCloude (Llama3): 
+4.ApiKEY Gemini: 
+5.transformers
+6.scikit-learn
+7.joblib
+8.reportlab
+9.requests
+10.pypdfium2
+11.pdfplumber
+12.Pillow
+13.python-docx

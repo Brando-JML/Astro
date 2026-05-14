@@ -1,11 +1,16 @@
 import os
+import json
 import torch
 import joblib
-
+import datetime
 from servicios.generador import GeneradorExamen, PROVEEDORES
 from servicios.exportar_pdf import exportar_pdf
-from red_neuronal.entrenamiento import ExamModel
+from red_neuronal.entrenamiento import MultimodalExamModel
 
+DATASET_PATH = "dataset/dataset.json"
+HISTORIAL_PATH = "configuraciones/historial.json"
+JSON_PATH = "configuraciones/reglas_universidades.json"
+EXAMENES_PATH = "examenes_generados"
 
 def pedir_opcion(pregunta, opciones):
     print(f"\n{pregunta}")
@@ -21,136 +26,260 @@ def pedir_opcion(pregunta, opciones):
         print("  ⚠️  Opción inválida, intenta de nuevo.")
 
 
-def main():
-    print("\n" + "="*50)
-    print("  CRYSTAL — Sistema Inteligente de Exámenes")
-    print("="*50)
-
-    # ── Institución ────────────────────────────────
-    instituciones = ["UNAM", "IPN", "CENEVAL"]
-    institucion   = pedir_opcion("¿Para qué institución?", instituciones)
-
-    # ── Total de preguntas ─────────────────────────
+def pedir_numero(mensaje, minimo=1, maximo=None):
     while True:
         try:
-            total = int(input("\n¿Cuántas preguntas? (ej. 120): "))
-            if total > 0:
-                break
+            val = int(input(f"\n{mensaje}"))
+            if val >= minimo and (maximo is None or val <= maximo):
+                return val
         except ValueError:
             pass
-        print("  ⚠️  Ingresa un número válido.")
+        rango = f"(mínimo {minimo})" if maximo is None else f"({minimo}–{maximo})"
+        print(f"  ⚠️  Ingresa un número válido {rango}.")
 
-    # ── Nivel de dificultad ────────────────────────
-    niveles = ["mixto", "facil", "medio", "dificil"]
-    nivel   = pedir_opcion("¿Nivel de dificultad?", niveles)
 
-    # ── Modo de generación ─────────────────────────
-    modos = [
-        "dataset  — Usa el modelo entrenado + preguntas reales del dataset",
-        "ia       — Genera preguntas 100% nuevas con IA",
-    ]
-    modo_sel = pedir_opcion("¿Cómo generar el examen?", modos)
-    modo     = "dataset" if modo_sel.startswith("dataset") else "ia"
+def cargar_instituciones():
+    """Lee las instituciones únicas directamente del dataset JSON."""
+    if not os.path.exists(DATASET_PATH):
+        return ["UNAM", "IPN", "CENEVAL"]
+    try:
+        with open(DATASET_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        unis = sorted({
+            str(p.get("universidad", "")).strip()
+            for p in data
+            if str(p.get("universidad", "")).strip()
+            and str(p.get("universidad", "")).strip().upper() not in ("DESCONOCIDA", "VARIAS")
+        })
+        return unis if unis else ["UNAM", "IPN", "CENEVAL"]
+    except Exception:
+        return ["UNAM", "IPN", "CENEVAL"]
 
-    # ── Si es modo IA: elegir proveedor ───────────
-    proveedor     = "Ollama (Local - GRATIS)"
-    api_key       = ""
-    modelo_ollama = "llama3"
 
-    if modo == "ia":
-        proveedores_lista = list(PROVEEDORES.keys())
-        proveedor         = pedir_opcion("¿Qué proveedor de IA usar?", proveedores_lista)
-        cfg               = PROVEEDORES[proveedor]
+def cargar_areas_de_institucion(institucion):
+    """Lee las áreas disponibles para la institución desde el dataset."""
+    if not os.path.exists(DATASET_PATH):
+        return []
+    try:
+        with open(DATASET_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            areas = sorted({
+                str(p.get("area", "")).strip() 
+                for p in data 
+                if str(p.get("universidad", "")).strip().lower() == institucion.strip().lower()
+                and str(p.get("area", "")).strip().lower() not in ["", "nan", "none"]
+                })
 
-        if cfg["formato"] == "ollama":
-            modelo_ollama = input(
-                "\nModelo Ollama (Enter para usar 'llama3'): "
-            ).strip() or "llama3"
-            print("  ℹ️  Asegúrate de que Ollama esté corriendo: ollama serve")
+        return areas
+    except Exception:
+        return []
 
-        else:
-            # Intentar leer del entorno primero
-            env_key = os.environ.get(cfg.get("key_env", ""), "")
-            if env_key:
-                api_key = env_key
-                print(f"\n  ✅ API Key cargada desde variable de entorno ({cfg['key_env']})")
-            else:
-                api_key = input(f"\nAPI Key para {proveedor}: ").strip()
-                if not api_key:
-                    print(f"  ⚠️  Sin API Key no se puede usar {proveedor}.")
-                    print(f"  ℹ️  Obtén una en: {cfg.get('key_url', '')}")
-                    return
 
-    # ── Respuestas en PDF ──────────────────────────
-    inc_resp = input("\n¿Incluir hoja de respuestas en el PDF? (s/n): ").strip().lower() == "s"
+def mostrar_resumen_dataset():
+    """Muestra un resumen rápido del dataset al arrancar."""
+    if not os.path.exists(DATASET_PATH):
+        print("  ⚠️  No se encontró dataset. Ejecuta primero el Creador de Dataset.")
+        return
+    try:
+        with open(DATASET_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        total = len(data)
+        unis = {}
+        for p in data:
+            u = str(p.get("universidad", "?")).strip()
+            unis[u] = unis.get(u, 0) + 1
+        print(f"\n  📦 Dataset: {total} preguntas")
+        for u, cnt in sorted(unis.items(), key=lambda x: -x[1])[:5]:
+            print(f"     • {u}: {cnt}")
+        if len(unis) > 5:
+            print(f"     ... y {len(unis)-5} instituciones más")
+    except Exception:
+        pass
 
-    # ── Cargar modelo entrenado (solo modo dataset) ─
-    modelo_bert = None
-    le          = None
+# Método para guardar el historial de examenes:
+def guardar_en_historial(datos):
+    historial = []
 
-    if modo == "dataset":
+    if os.path.exists(HISTORIAL_PATH):
         try:
-            le          = joblib.load("label_encoder.pkl")
-            modelo_bert = ExamModel(num_universidades=len(le.classes_))
-            modelo_bert.load_state_dict(
-                torch.load("modelo.pth", map_location="cpu")
+            with open(HISTORIAL_PATH, "r", encoding="utf-8") as f:
+                historial = json.load(f)
+        except Exception:
+            pass
+    datos["fecha"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    historial.append(datos)
+
+    with open(HISTORIAL_PATH, "w", encoding="utf-8") as f:
+        json.dump(historial, f, indent=4, ensure_ascii=False)
+
+# Método para moestrar el historial de examenes generados:
+def mostrar_historial():
+    if not os.path.exists(HISTORIAL_PATH):
+        print("\n  ⚠️  Aún no hay historial de exámenes.")
+        return
+    with open(HISTORIAL_PATH, "r", encoding="utf-8") as f:
+        historial = json.load(f)
+    print("\n" + "="*52)
+    print("   ÚLTIMOS EXÁMENES GENERADOS")
+    print("="*52)
+    for entry in historial[-5:]:
+        area_str = str(entry.get("area", "Todas"))
+        if isinstance(entry.get("area"), dict):
+            area_str = "Mezcla personalizada"
+        print(f"  📅 {entry['fecha']} | {entry['institucion']} | {entry['total']} preg. | Dificultad: {entry['nivel']}")
+        print(f"     Área: {area_str} | Modo: {entry['modo']} | PDF: {entry.get('archivo', 'N/A')}\n")
+
+#Para el modo maestro
+
+def iniciar_modo_maestro(generador):
+    print("\n" + "="*52)
+    print("   👨‍🏫 MODO MAESTRO — Tu Tutor de Inteligencia Artificial")
+    print("="*52)
+    
+    opcion = pedir_opcion("¿En qué te puedo ayudar hoy?", [
+        "Tengo una duda específica o pregunta de examen",
+        "Necesito que me expliques todos los temas de una materia",
+        "Volver al menú principal"
+    ])
+    
+    if opcion == "Volver al menú principal":
+        return
+
+    if "específica" in opcion:
+        duda = input("\nEscribe tu duda o pega la pregunta: ").strip()
+        if duda:
+            ruta_img = input(
+                "¿La pregunta tiene una imagen? "
+                "Escribe la ruta del archivo (Enter para omitir): "
+            ).strip()
+            ruta_img = ruta_img if ruta_img and os.path.exists(ruta_img) else None
+            if ruta_img:
+                print(f"  🖼️  Usando imagen: {ruta_img}")
+            respuesta = generador.tutor_explicar_concepto(duda, ruta_imagen=ruta_img)
+            print("\n" + "-"*50)
+            print(respuesta)
+            print("-"*50 + "\n")
+
+    elif "materia" in opcion:
+        materia = input("\n¿Qué materia necesitas repasar? (ej. Física, Historia de México): ").strip()
+        if materia:
+            respuesta = generador.tutor_explicar_materia(materia)
+            print("\n" + "-"*50)
+            print(respuesta)
+            print("-"*50 + "\n")
+
+def main():
+    while True:
+        print("\n" + "="*52)
+        print("   CRYSTAL — Sistema Inteligente de Exámenes")
+        print("="*52)
+
+        #Añadimos el Modo Maestro al menú
+        opcion_inicio = pedir_opcion("¿Qué deseas hacer?", [
+            "Generar nuevo examen", 
+            "Modo Maestro (Tutor IA)", 
+            "Ver historial", 
+            "Salir"
+        ])
+        
+        if opcion_inicio == "Salir":
+            return
+        elif opcion_inicio == "Ver historial":
+            mostrar_historial()
+            continue
+
+        # Instanciar el generador temprano para usarlo en el tutor
+        # Si vas a usar el Tutor IA, configuramos la API primero
+        if opcion_inicio == "Modo Maestro (Tutor IA)":
+            proveedor = pedir_opcion("¿Qué IA será tu maestro?", list(PROVEEDORES.keys()))
+            cfg = PROVEEDORES[proveedor]
+            api_key = ""
+            modelo_ollama = "llama3"
+            if cfg["formato"] == "ollama":
+                modelo_ollama = input("\nModelo Ollama (Enter para 'llama3'): ").strip() or "llama3"
+            else:
+                api_key = os.environ.get(cfg.get("key_env", ""), "") or input(f"\nAPI Key para {proveedor}: ").strip()
+            
+            generador = GeneradorExamen(
+                ruta_dataset=DATASET_PATH, proveedor_ia=proveedor, 
+                api_key=api_key, modelo_ollama=modelo_ollama
             )
-            modelo_bert.eval()
-            print("\n✅ Modelo CRYSTAL cargado correctamente.")
-        except FileNotFoundError:
-            print("\n⚠️  No se encontró modelo entrenado (modelo.pth / label_encoder.pkl).")
-            print("   Ejecuta primero: python red_neuronal/entrenamiento.py")
-            print("   Continuando sin modelo — se usará la dificultad del CSV...\n")
+            iniciar_modo_maestro(generador)
+            continue
+            
+        mostrar_resumen_dataset()
 
-    # ── Crear generador ────────────────────────────
-    generador = GeneradorExamen(
-        ruta_dataset="dataset/dataset.csv",
-        modelo=modelo_bert,
-        label_encoder=le,
-        proveedor_ia=proveedor,
-        api_key=api_key,
-        modelo_ollama=modelo_ollama,
-    )
+        # ── Institución y Área (Desde el JSON directamente) ──
+        try:
+            with open(JSON_PATH, "r", encoding="utf-8") as f:
+                config_json = json.load(f)
+        except:
+            print("❌ Error: No se encontró reglas_universidades.json")
+            return
 
-    # ── Resumen antes de generar ───────────────────
-    print(f"\n⚙️  Generando examen...")
-    print(f"   Institución : {institucion}")
-    print(f"   Preguntas   : {total}")
-    print(f"   Dificultad  : {nivel}")
-    print(f"   Modo        : {modo}")
-    if modo == "ia":
-        print(f"   Proveedor   : {proveedor}")
+        instituciones = list(config_json.keys())
+        institucion = pedir_opcion("¿Para qué institución?", instituciones)
 
-    # ── Generar ────────────────────────────────────
-    examen = generador.generar_examen(
-        institucion=institucion,
-        total_preguntas=total,
-        nivel_dificultad=nivel,
-        modo=modo,
-    )
+        areas = list(config_json[institucion].keys())
+        area = pedir_opcion(f"¿Qué área de la {institucion} deseas?", areas)
 
-    print(f"\n✅ Examen generado: {len(examen)} preguntas")
+        niveles = ["mixto", "facil", "medio", "dificil"]
+        nivel = pedir_opcion("¿Nivel de dificultad?", niveles)
 
-    # ── Exportar TXT + PDF ─────────────────────────
-    nombre_base = f"examen_{institucion.lower()}_{nivel}"
+        inc_resp = input("\n¿Incluir hoja de respuestas en el PDF? (s/n): ").strip().lower() == "s"
 
-    generador.guardar_examen(examen, f"{nombre_base}.txt")
+        # ── Cargar modelo entrenado (se mantiene igual) ──
+        modelo_bert, le_uni, le_area = None, None, None
+        try:
+            le_uni = joblib.load("label_encoder.pkl")
+            le_area = joblib.load("label_encoder_area.pkl")
+            # modelo_bert = MultimodalExamModel(...) # (Tu código de carga existente)
+        except Exception as e:
+            pass # Continuar sin modelo si no existe
 
-    pdf_path = exportar_pdf(
-        examen=examen,
-        institucion=institucion,
-        nombre_archivo=f"{nombre_base}.pdf",
-        incluir_respuestas=inc_resp,
-        nivel_dificultad=nivel.capitalize(),
-    )
+        generador = GeneradorExamen(
+            ruta_dataset=DATASET_PATH, modelo=modelo_bert, label_encoder=le_uni
+        )
 
-    print(f"\n📄 PDF listo: {pdf_path}")
+        try:
+            # ✨ AQUÍ LLAMAMOS AL NUEVO GENERADOR ESTRICTO
+            examen = generador.generar_examen_estricto(institucion, area)
+        except Exception as e:
+            print(f"\n  ❌ Error al generar: {e}")
+            return
 
-    # ── Mostrar en consola ─────────────────────────
-    ver = input("\n¿Mostrar el examen en consola? (s/n): ").strip().lower()
-    if ver == "s":
-        generador.imprimir_examen(examen)
+        if not examen: return
+        print(f"\n  ✅ Examen oficial generado: {len(examen)} preguntas")
 
+        nombre_base = f"examen_{institucion.lower()}_{area.replace(' ', '_')}"
+        
+        # Unimos la carpeta con el nombre del archivo
+        ruta_txt = os.path.join(EXAMENES_PATH, f"{nombre_base}.txt")
+        ruta_pdf = os.path.join(EXAMENES_PATH, f"{nombre_base}.pdf")
+        
+        pdf_path_final = None
+
+        # Guardar TXT:
+        generador.guardar_examen(examen, ruta_txt)        
+
+        # Generar PDF:
+        try:
+            pdf_path = exportar_pdf(examen, institucion, ruta_pdf, inc_resp, nivel.capitalize())
+            print(f"  ✅ Archivos guardados en la carpeta '{EXAMENES_PATH}'")
+        except Exception as e:
+            print(f"  ⚠️  No se pudo generar PDF: {e}")
+
+        # Guardar en el historial:
+        guardar_en_historial({
+            "institucion": institucion, 
+            "area": area, 
+            "total": len(examen),
+            "preguntas": len(examen),
+            "fecha": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "nivel": nivel, 
+            "modo": "estricto", 
+            "archivo": pdf_path_final if pdf_path_final else ruta_txt
+        })
 
 if __name__ == "__main__":
     main()

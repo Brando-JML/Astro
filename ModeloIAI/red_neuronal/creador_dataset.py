@@ -2,22 +2,37 @@ import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 import pandas as pd
 import os
+import random
 import threading
 import json
 import urllib.request
 import urllib.error
+import shutil
 import base64
 import io
 import time
 import hashlib
+from PIL import Image, ImageTk # Requiere: pip install pillow
 
+JSON_PATH = "configuraciones/reglas_universidades.json"
+
+
+def cargar_configuracion_universidades():
+    try:
+        with open(JSON_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+# 1. BLOQUE TRY/EXCEPT
 try:
     import requests as _requests
     REQUESTS_OK = True
 except ImportError:
     REQUESTS_OK = False
 
-FILE_PATH = "dataset/dataset.csv"
+FILE_PATH = "dataset/dataset.json"
+ruta_imagen_seleccionada = None
 CHUNK_SIZE = 6000       # caracteres por chunk de texto
 CHUNK_IMAGENES = 3      # páginas por llamada cuando es PDF imagen
 
@@ -67,30 +82,82 @@ PROVEEDORES = {
     },
 }
 
+# 2. DEFINICIÓN DE LA CLASE
+class CreadorDatasetApp:
+    def __init__(self, root):
+
+        self.ruta_imagen_seleccionada = tk.StringVar()
+        self.setup_ui_imagenes()
+
+    # =========================
+    # UTILIDADES IMAGENES
+    # =========================
+    def setup_ui_imagenes(self):
+        """Añade los controles de imagen al formulario."""
+        # Solución: Usamos directamente tab_agregar que es la variable global de tu pestaña
+        frame_img = tk.LabelFrame(tab_agregar, text=" 🖼️ Contexto Visual ")
+        frame_img.pack(fill="x", padx=15, pady=5)
+
+        tk.Entry(frame_img, textvariable=self.ruta_imagen_seleccionada, state="readonly").pack(side="left", fill="x", expand=True, padx=5)
+        
+        tk.Button(frame_img, text="Adjuntar Imagen", command=self.seleccionar_imagen).pack(side="left", padx=5)
+        
+        # Miniatura de vista previa
+        self.lbl_preview = tk.Label(frame_img, text="Sin imagen", bg="gray", width=10, height=5)
+        self.lbl_preview.pack(side="right", padx=10)
+
+    def seleccionar_imagen(self, event = None):
+        global ruta_imagen_seleccionada
+        ruta = filedialog.askopenfilename(
+            title="Seleccionar imagen de la pregunta",
+            filetypes=[("Imágenes", "*.png *.jpg *.jpeg *.bmp *.gif")]
+        )
+        if ruta:
+            ruta_imagen_seleccionada = ruta
+            # Opcional: Mostrar un mensaje o cambiar el color del botón para saber que se cargó
+            print(f"Imagen seleccionada: {ruta}")
+
+
 # =========================
 # UTILIDADES DATASET
 # =========================
-def cargar_df():
-    if os.path.exists(FILE_PATH):
-        return pd.read_csv(FILE_PATH)
-    return pd.DataFrame(columns=["pregunta","opciones","respuesta","dificultad","universidad","tema"])
 
-def guardar_filas(filas):
-    os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
-    df_nuevo = pd.DataFrame(filas)
+# Método para cargar / Hacer el JSON:
+def cargar_json():
     if os.path.exists(FILE_PATH):
-        df = pd.concat([pd.read_csv(FILE_PATH), df_nuevo], ignore_index=True)
-    else:
-        df = df_nuevo
-    df.to_csv(FILE_PATH, index=False)
+        with open(FILE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+    
+# Método para guardar las filas del DataSet:
+def guardar_filas_json(filas):
+    os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
+
+    data = cargar_json()
+
+    # Generar ID simple
+    for f in filas:
+        f["id"] = hash_pregunta(f["pregunta"])
+
+        # Convertir opciones a lista
+        if isinstance(f["opciones"], str):
+            f["opciones"] = [opt.strip() for opt in f["opciones"].split(";")]
+
+        f["imagen"] = None  # placeholder
+
+    data.extend(filas)
+
+    with open(FILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def hash_pregunta(texto):
     return hashlib.md5(str(texto).strip().lower().encode()).hexdigest()
 
+# Método para detectar duplicados en el DataSet:
 def detectar_duplicados(nuevas_filas):
     """Retorna (unicas, duplicadas) separando por hash de pregunta."""
-    df = cargar_df()
-    existentes = set(hash_pregunta(p) for p in df["pregunta"]) if not df.empty else set()
+    data = cargar_json()
+    existentes = set(hash_pregunta(p["pregunta"]) for p in data)
     unicas, duplicadas = [], []
     vistos = set()
     for f in nuevas_filas:
@@ -101,6 +168,16 @@ def detectar_duplicados(nuevas_filas):
             unicas.append(f)
             vistos.add(h)
     return unicas, duplicadas
+
+# Convertir el JSON en un DataFrame
+def cargar_df():
+    data = cargar_json()
+    return pd.DataFrame(data)
+
+# Método para guardado del JSON
+def guardar_json_completo(data):
+    with open(FILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 # =========================
 # LLAMADA A LA IA
@@ -205,7 +282,11 @@ def llamar_ia_vision(imagenes_b64, prompt_texto):
             "generationConfig":{"maxOutputTokens":8000,"temperature":0.1}}).encode("utf-8")
         req = urllib.request.Request(url_v, data=payload,
             headers={"Content-Type":"application/json"}, method="POST")
-        return _hacer_peticion(req)["candidates"][0]["content"]["parts"][0]["text"]
+        data = _hacer_peticion(req)
+        try:
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception:
+            raise Exception(f"Respuesta inesperada de Gemini: {data}")
 
     elif fmt == "ollama":
         modelo_local = entry_modelo_ollama.get().strip() or modelo
@@ -256,8 +337,15 @@ def _hacer_peticion(req):
 _UNI_DESCONOCIDAS = {"","desconocida","varias","no especificada","no encontrada",
                      "no identificada","n/a","ninguna","unknown"}
 
+_AREA_DESCONOCIDA = {"","desconocida","varias","no especificada","no encontrada",
+                     "no identificada","n/a","ninguna","unknown"}
+
+
 def _uni_es_desconocida(v):
     return str(v).strip().lower() in _UNI_DESCONOCIDAS
+
+def _area_es_desconocida(v):
+    return str(v).strip().lower() in _AREA_DESCONOCIDA
 
 def _parsear_json_ia(texto):
     texto = texto.strip()
@@ -272,39 +360,74 @@ def _parsear_json_ia(texto):
         texto = texto[inicio:fin]
     return json.loads(texto.strip())
 
-def _prompt_extraccion(universidad, tema_default):
-    uni_instruccion = (
-        f'- Universidad: usa SIEMPRE "{universidad}" para todas las preguntas'
-        if universidad and not _uni_es_desconocida(universidad)
-        else '- Universidad: detecta el nombre de la institucion en el texto/imagen. Si no aparece usa "DESCONOCIDA"'
-    )
-    return f"""Analiza el contenido y extrae TODAS las preguntas de opcion multiple que encuentres.
+# Áreas conocidas por institución para orientar a la IA
+AREAS_CONOCIDAS = {
+    "unam": {
+        "Area 1": "Ciencias Fisico-Matematicas e Ingenierias (Matematicas, Fisica, Quimica, Computacion, Ingenieria)",
+        "Area 2": "Ciencias Biologicas, Quimicas y de la Salud (Biologia, Medicina, Quimica, Enfermeria, Nutricion)",
+        "Area 3": "Ciencias Sociales (Economia, Derecho, Contabilidad, Administracion, Ciencias Politicas)",
+        "Area 4": "Artes y Humanidades (Historia, Filosofia, Letras, Pedagogia, Psicologia, Comunicacion)",
+    },
+    "ipn": {
+        "Area Medico Biologica": "Medicina, Biologia, Enfermeria, Nutricion, Optometria",
+        "Area Fisico Matematica": "Ingenieria, Computacion, Matematicas, Arquitectura",
+        "Area Social y Administrativa": "Economia, Comercio, Administracion, Turismo",
+    },
+    "uam": {
+        "Ciencias Basicas e Ingenieria": "Matematicas, Fisica, Computacion, Ingenieria",
+        "Ciencias Biologicas y de la Salud": "Medicina, Biologia, Nutricion",
+        "Ciencias Sociales y Humanidades": "Economia, Sociologia, Derecho, Humanidades",
+    },
+    "ceneval": {
+        "EXANI-II Area 1": "Ciencias Fisico-Matematicas",
+        "EXANI-II Area 2": "Ciencias Biologicas y de la Salud",
+        "EXANI-II Area 3": "Ciencias Sociales",
+        "EXANI-II Area 4": "Artes y Humanidades",
+    },
+}
 
-Devuelve UNICAMENTE un JSON (sin texto extra, sin backticks):
+def _obtener_areas_para_uni(universidad):
+    """Retorna el contexto de áreas para la universidad dada, si se conoce."""
+    uni_lower = str(universidad).strip().lower()
+    for key, areas in AREAS_CONOCIDAS.items():
+        if key in uni_lower:
+            lineas = [f"  - {nombre}: {desc}" for nombre, desc in areas.items()]
+            return "\n".join(lineas)
+    return ""
+
+
+def _prompt_extraccion(universidad, area, tema_default):
+    config = cargar_configuracion_universidades()
+    reglas_string = json.dumps(config, indent=2, ensure_ascii=False)
+
+    return f"""Analiza el contenido y extrae TODAS las preguntas de opción múltiple que encuentres.
+
+REGLAS DE CLASIFICACIÓN (Sigue ESTRICTAMENTE esta estructura):
+{reglas_string}
+
+Instrucciones:
+1. Extrae cada pregunta con sus opciones.
+2. Clasifica la pregunta asignándole la 'universidad', 'area', 'materia' y 'tema' EXACTOS basándote ÚNICAMENTE en el JSON de reglas anterior.
+3. Si la pregunta no encaja en las reglas, usa "{tema_default}" como tema.
+
+Devuelve UNICAMENTE un JSON:
 {{
   "preguntas": [
     {{
-      "pregunta": "Texto completo de la pregunta",
-      "opciones": "A) opcion1 ; B) opcion2 ; C) opcion3 ; D) opcion4",
-      "respuesta": "A",
-      "dificultad": 0.5,
-      "universidad": "nombre o DESCONOCIDA",
-      "tema": "tema detectado o '{tema_default}'"
+        "universidad": "Nombre exacto del JSON",
+        "area": "Nombre exacto del área, o número del area",
+        "materia": "Materia correspondiente",
+        "tema": "Tema o subtema específico",
+        "pregunta": "Texto completo de la pregunta",
+        "opciones": "A) opcion1 ; B) opcion2 ; C) opcion3 ; D) opcion4",
+        "respuesta": "A",
+        "dificultad": 0.5
     }}
   ]
 }}
-
-Reglas:
-- Extrae TODAS las preguntas de opcion multiple, sin omitir ninguna
-- Separa opciones con " ; "
-- Respuesta: solo la letra (A, B, C o D). Si no esta marcada usa A
-- Dificultad: 0.0 (facil) a 1.0 (dificil)
-- Si no hay preguntas devuelve {{"preguntas": []}}
-- {uni_instruccion}
-- Tema: si no se detecta usa "{tema_default}"
 """
 
-def extraer_de_texto_chunked(texto, universidad, tema_default, lbl_estado=None):
+def extraer_de_texto_chunked(texto, universidad, area, tema_default, lbl_estado=None):
     """Divide el texto en chunks y hace una llamada por chunk."""
     chunks = []
     for i in range(0, len(texto), CHUNK_SIZE):
@@ -313,7 +436,7 @@ def extraer_de_texto_chunked(texto, universidad, tema_default, lbl_estado=None):
             chunks.append(chunk)
 
     todas = []
-    prompt_base = _prompt_extraccion(universidad, tema_default)
+    prompt_base = _prompt_extraccion(universidad, area, tema_default)
 
     for idx, chunk in enumerate(chunks):
         if lbl_estado:
@@ -334,14 +457,19 @@ def extraer_de_texto_chunked(texto, universidad, tema_default, lbl_estado=None):
         for p in todas:
             p["universidad"] = universidad
 
+    # Forzar area si el usuario la escribió
+    if area and not _area_es_desconocida(area):
+        for p in todas:
+            p["area"] = area
+
     return todas
 
 
-def extraer_de_imagenes_chunked(imagenes_b64, universidad, tema_default, lbl_estado=None):
+def extraer_de_imagenes_chunked(imagenes_b64, universidad, area, tema_default, lbl_estado=None):
     """Procesa imágenes en grupos para no exceder límites."""
     todas = []
     grupos = [imagenes_b64[i:i+CHUNK_IMAGENES] for i in range(0, len(imagenes_b64), CHUNK_IMAGENES)]
-    prompt_base = _prompt_extraccion(universidad, tema_default)
+    prompt_base = _prompt_extraccion(universidad, area, tema_default)
 
     for idx, grupo in enumerate(grupos):
         if lbl_estado:
@@ -359,6 +487,11 @@ def extraer_de_imagenes_chunked(imagenes_b64, universidad, tema_default, lbl_est
     if universidad and not _uni_es_desconocida(universidad):
         for p in todas:
             p["universidad"] = universidad
+
+    if area and not _area_es_desconocida(area):
+        for p in todas:
+            p["area"] = area
+
 
     return todas
 
@@ -461,34 +594,74 @@ def leer_documento(ruta_archivo, lbl_estado=None):
 # GUARDAR MANUAL
 # =========================
 def guardar_dato():
+    global ruta_imagen_seleccionada
+    
     pregunta = entry_pregunta.get("1.0", tk.END).strip()
     opciones  = entry_opciones.get().strip()
     respuesta = entry_respuesta.get().strip().upper()
     dificultad = entry_dificultad.get().strip()
     universidad = entry_universidad.get().strip()
+    area = entry_area.get().strip()
     tema = entry_tema.get().strip()
+    
+    # Se extrae de la variable de la clase App (si la tienes enlazada) o de la global
+    ruta_img = ruta_imagen_seleccionada
 
-    if not all([pregunta, opciones, respuesta, dificultad, universidad, tema]):
-        messagebox.showerror("Error", "Todos los campos son obligatorios"); return
+    if not all([pregunta, opciones, respuesta, dificultad, universidad, area, tema]):
+        messagebox.showerror("Error", "Todos los campos son obligatorios")
+        return
     try:
         dificultad = float(dificultad)
     except Exception:
-        messagebox.showerror("Error", "Dificultad debe ser un numero (ej. 0.5)"); return
+        messagebox.showerror("Error", "Dificultad debe ser un numero (ej. 0.5)")
+        return
 
-    fila = {"pregunta":pregunta,"opciones":opciones,"respuesta":respuesta,
-            "dificultad":dificultad,"universidad":universidad,"tema":tema}
+    path_final_imagen = None
+    grupo_visual = "texto"
+    
+    if ruta_img:
+        os.makedirs("dataset/assets", exist_ok=True)
+        extension = os.path.splitext(ruta_img)[1]
+        nombre_archivo = f"img_{int(time.time())}{extension}"
+        path_final_imagen = os.path.join("dataset/assets", nombre_archivo)
+        shutil.copy(ruta_img, path_final_imagen)
+        
+        # Clasificar la imagen con IA (Opcional, si falla no detiene el guardado)
+        try:
+            print("🤖 IA clasificando imagen...")
+            b64_img = imagen_a_base64(path_final_imagen)
+            prompt_img = "Analiza esta imagen de un examen. Clasifícala en UNA SOLA PALABRA (ej: grafica, mapa, celula, formula, diagrama)."
+            grupo_visual = llamar_ia_vision([b64_img], prompt_img).strip().lower()
+            print(f"✅ Imagen clasificada como: {grupo_visual}")
+        except Exception as e:
+            print(f"⚠️ Error al clasificar imagen (se guardará sin clasificación visual): {e}")
+
+    fila = {
+        "pregunta": pregunta, 
+        "opciones": opciones, 
+        "respuesta": respuesta,
+        "dificultad": dificultad, 
+        "universidad": universidad, 
+        "area": area, 
+        "tema": tema, 
+        "imagen_path": path_final_imagen, 
+        "grupo_visual": grupo_visual
+    }
+    
     unicas, dups = detectar_duplicados([fila])
     if dups:
         messagebox.showwarning("Duplicado", "Esta pregunta ya existe en el dataset.")
         return
-    guardar_filas(unicas)
-    messagebox.showinfo("Exito", "Pregunta guardada")
+        
+    guardar_filas_json(unicas)
+    messagebox.showinfo("Exito", "Pregunta guardada con éxito")
     limpiar_campos()
+    ruta_imagen_seleccionada = None
     actualizar_vista_dataset()
 
 def limpiar_campos():
     entry_pregunta.delete("1.0", tk.END)
-    for e in [entry_opciones, entry_respuesta, entry_dificultad, entry_universidad, entry_tema]:
+    for e in [entry_opciones, entry_respuesta, entry_dificultad, entry_universidad, entry_area, entry_tema]:
         e.delete(0, tk.END)
 
 # =========================
@@ -496,6 +669,7 @@ def limpiar_campos():
 # =========================
 def cargar_documento():
     universidad = entry_universidad.get().strip() or ""
+    area = entry_area.get().strip() or ""
     tema = entry_tema.get().strip() or "General"
 
     ruta = filedialog.askopenfilename(
@@ -527,15 +701,15 @@ def cargar_documento():
                 raise Exception("El documento esta vacio o no tiene contenido extraible.")
 
             if imagenes:
-                preguntas = extraer_de_imagenes_chunked(imagenes, universidad, tema, lbl_estado)
+                preguntas = extraer_de_imagenes_chunked(imagenes, universidad, area, tema, lbl_estado)
             else:
-                preguntas = extraer_de_texto_chunked(texto, universidad, tema, lbl_estado)
+                preguntas = extraer_de_texto_chunked(texto, universidad, area, tema, lbl_estado)
 
             vent.destroy()
             if not preguntas:
                 messagebox.showinfo("Sin preguntas", "No se encontraron preguntas de opcion multiple.")
                 return
-            dialogo_universidad(preguntas, mostrar_ventana_revision)
+            dialogo_universidad(preguntas, lambda p: dialogo_area(p, mostrar_ventana_revision))
         except Exception as e:
             vent.destroy()
             messagebox.showerror("Error", str(e))
@@ -589,6 +763,75 @@ def dialogo_universidad(preguntas, callback):
     v.protocol("WM_DELETE_WINDOW", lambda: aplicar("DESCONOCIDA"))
 
 # =========================
+# DIALOGO AREA
+# =========================
+def dialogo_area(preguntas, callback):
+    """Si alguna pregunta tiene area DESCONOCIDA, pide al usuario que la ingrese."""
+    hay_desconocidas = any(_area_es_desconocida(p.get("area","")) for p in preguntas)
+    if not hay_desconocidas:
+        callback(preguntas); return
+
+    uni = preguntas[0].get("universidad","") if preguntas else ""
+    areas_ctx = _obtener_areas_para_uni(uni)
+
+    v = tk.Toplevel(root)
+    v.title("Area no detectada")
+    v.geometry("480x300")
+    v.resizable(False, False)
+    v.grab_set()
+
+    tk.Label(v, text="No se detecto el area en algunas preguntas.",
+             font=("Arial",10,"bold"), wraplength=450).pack(pady=(14,4))
+
+    if areas_ctx:
+        tk.Label(v, text=f"Areas conocidas para {uni}:", fg="#1565c0",
+                 font=("Arial",9,"bold")).pack(anchor="w", padx=15)
+        tk.Label(v, text=areas_ctx, fg="#444", font=("Arial",8),
+                 justify="left", wraplength=450).pack(anchor="w", padx=20)
+
+    tk.Label(v, text="Escribe el area, o elige una opcion:", fg="#555").pack(pady=(8,2))
+    e = tk.Entry(v, width=46, font=("Arial",10))
+    e.pack(pady=4)
+    val_campo = entry_area.get().strip()
+    if val_campo: e.insert(0, val_campo)
+
+    # Botones de areas conocidas si aplica
+    uni_lower = str(uni).strip().lower()
+    areas_dict = None
+    for key, areas in AREAS_CONOCIDAS.items():
+        if key in uni_lower:
+            areas_dict = areas; break
+
+    if areas_dict:
+        frame_areas = tk.Frame(v)
+        frame_areas.pack(pady=4)
+        tk.Label(frame_areas, text="Seleccionar rapido:", font=("Arial",8), fg="#555").pack()
+        frame_btns_areas = tk.Frame(frame_areas)
+        frame_btns_areas.pack()
+        for nombre_area in list(areas_dict.keys())[:4]:
+            tk.Button(frame_btns_areas, text=nombre_area, font=("Arial",8),
+                      command=lambda a=nombre_area: [e.delete(0,tk.END), e.insert(0,a)]
+                      ).pack(side="left", padx=3)
+
+    def aplicar(valor):
+        for p in preguntas:
+            if _area_es_desconocida(p.get("area","")):
+                p["area"] = valor
+        v.destroy(); callback(preguntas)
+
+    def manual():
+        val = e.get().strip()
+        aplicar(val if val else "DESCONOCIDA")
+
+    frame_b = tk.Frame(v)
+    frame_b.pack(pady=8)
+    tk.Button(frame_b, text="Usar area ingresada", command=manual,
+              bg="#1565c0", fg="white", padx=8).pack(side="left", padx=5)
+    tk.Button(frame_b, text="DESCONOCIDA", command=lambda: aplicar("DESCONOCIDA"),
+              padx=8).pack(side="left", padx=5)
+    v.protocol("WM_DELETE_WINDOW", lambda: aplicar("DESCONOCIDA"))
+
+# =========================
 # VENTANA DE REVISION (con edicion inline)
 # =========================
 def mostrar_ventana_revision(preguntas):
@@ -599,6 +842,7 @@ def mostrar_ventana_revision(preguntas):
         except: dif = 0.5
         filas_temp.append({"pregunta":p.get("pregunta",""),"opciones":p.get("opciones",""),
             "respuesta":str(p.get("respuesta","A")).upper(),"dificultad":dif,
+            "area":p.get("area", ""),
             "universidad":p.get("universidad",""),"tema":p.get("tema","")})
 
     _, dups_existentes = detectar_duplicados(filas_temp)
@@ -667,13 +911,18 @@ def mostrar_ventana_revision(preguntas):
         e_uni.insert(0, p.get("universidad",""))
         e_uni.grid(row=6, column=1, columnspan=2, sticky="w")
 
-        tk.Label(frame_p, text="Tema:", fg="#555", font=("Arial",8)).grid(row=6,column=3,sticky="w")
+        tk.Label(frame_p, text="Area:", fg="#555", font=("Arial",8)).grid(row=7,column=0,sticky="w")
+        e_area = tk.Entry(frame_p, width=35, font=("Arial",9))
+        e_area.insert(0, p.get("area",""))
+        e_area.grid(row=7, column=1, columnspan=2, sticky="w")
+
+        tk.Label(frame_p, text="Tema:", fg="#555", font=("Arial",8)).grid(row=8,column=3,sticky="w")
         e_tema = tk.Entry(frame_p, width=20, font=("Arial",9))
         e_tema.insert(0, p.get("tema",""))
-        e_tema.grid(row=6, column=4, sticky="w")
+        e_tema.grid(row=8, column=1, sticky="w")
 
         editores.append({"pregunta":t_preg,"opciones":e_opc,"respuesta":e_resp,
-                         "dificultad":e_dif,"universidad":e_uni,"tema":e_tema})
+                         "dificultad":e_dif,"universidad":e_uni,"area":e_area, "tema":e_tema})
 
     frame_btn = tk.Frame(v)
     frame_btn.pack(pady=10)
@@ -690,6 +939,7 @@ def mostrar_ventana_revision(preguntas):
                 "respuesta": ed["respuesta"].get().strip().upper(),
                 "dificultad": dif,
                 "universidad": ed["universidad"].get().strip(),
+                "area": ed["area"].get().strip(),
                 "tema": ed["tema"].get().strip(),
             })
         if not filas:
@@ -700,7 +950,7 @@ def mostrar_ventana_revision(preguntas):
         if dups:
             msg += f"\n{len(dups)} omitidas por ser duplicadas."
         if unicas:
-            guardar_filas(unicas)
+            guardar_filas_json(unicas)
         v.destroy()
         messagebox.showinfo("Listo", msg)
         actualizar_vista_dataset()
@@ -727,6 +977,7 @@ def actualizar_vista_dataset():
     for _, fila in df.iterrows():
         tabla.insert("", "end", values=(
             fila.get("universidad",""),
+            fila.get("area",""),
             fila.get("tema",""),
             str(fila.get("respuesta","")).upper(),
             fila.get("dificultad",""),
@@ -756,6 +1007,7 @@ def editar_fila_seleccionada():
         ("Respuesta (A/B/C/D)", "respuesta", 1),
         ("Dificultad (0-1)", "dificultad", 1),
         ("Universidad", "universidad", 1),
+        ("Area", "area", 1),
         ("Tema", "tema", 1),
     ]:
         tk.Label(v, text=label, anchor="w").pack(fill="x", padx=15, pady=(6,0))
@@ -782,7 +1034,7 @@ def editar_fila_seleccionada():
         df2 = cargar_df()
         for key, val in nueva.items():
             df2.at[idx, key] = val
-        df2.to_csv(FILE_PATH, index=False)
+        guardar_json_completo(df2.to_dict(orient="records"))
         v.destroy()
         actualizar_vista_dataset()
         messagebox.showinfo("Listo", "Pregunta actualizada.")
@@ -800,7 +1052,7 @@ def eliminar_fila_seleccionada():
     idx = tabla.index(sel[0])
     df = cargar_df()
     df = df.drop(index=idx).reset_index(drop=True)
-    df.to_csv(FILE_PATH, index=False)
+    guardar_json_completo(df.to_dict(orient="records"))
     actualizar_vista_dataset()
 
 def actualizar_estadisticas(df=None):
@@ -824,17 +1076,30 @@ def actualizar_estadisticas(df=None):
         tk.Label(frame_stats_inner, text=f"{cnt} ({cnt*100//total}%)",
                  font=("Arial",9), fg="#555").grid(row=r, column=1, sticky="w", padx=10)
 
-    offset = 2 + len(unis)
+    offset = 3 + len(unis)
+
+    #Por area
+    tk.Label(frame_stats_inner, text="Por area:", font=("Arial",9,"bold"),
+            fg="#1565c0").grid(row=offset, column=0, sticky="w", pady=(6,0))
+    areas = df["area"].value_counts()
+    for r, (area, cnt) in enumerate(areas.items(), start=offset+1):
+        tk.Label(frame_stats_inner, text=f"  {area}", font=("Arial",9)).grid(row=r, column=0, sticky="w")
+        tk.Label(frame_stats_inner, text=f"{cnt} ({cnt*100//total}%)",
+                 font=("Arial",9), fg="#555").grid(row=r, column=1, sticky="w", padx=10)
+
+    offset = offset + 1 + len(areas)
+
     # Por tema
     tk.Label(frame_stats_inner, text="Por tema:", font=("Arial",9,"bold"),
              fg="#1565c0").grid(row=offset, column=0, sticky="w", pady=(6,0))
     temas = df["tema"].value_counts().head(8)
-    for r, (tema, cnt) in enumerate(temas.items(), start=offset+1):
+    for r, (tema, cnt) in enumerate(temas.items(), start=offset+2):
         tk.Label(frame_stats_inner, text=f"  {tema}", font=("Arial",9)).grid(row=r, column=0, sticky="w")
         tk.Label(frame_stats_inner, text=f"{cnt}", font=("Arial",9),
                  fg="#555").grid(row=r, column=1, sticky="w", padx=10)
 
-    offset2 = offset + 1 + len(temas)
+    offset2 = offset + 2 + len(temas)
+
     # Dificultad promedio
     try:
         prom = df["dificultad"].astype(float).mean()
@@ -842,6 +1107,51 @@ def actualizar_estadisticas(df=None):
                  font=("Arial",9,"bold")).grid(row=offset2, column=0, columnspan=2, sticky="w", pady=(8,0))
     except Exception:
         pass
+
+def mostrar_imagen_en_preview(event):
+    # 1. Obtener la fila seleccionada
+    item_id = tabla.focus()
+    if not item_id: 
+        return
+    
+    valores = tabla.item(item_id)['values']
+    # La columna 5 es la "Pregunta"
+    pregunta_texto = str(valores[5]).strip() 
+    print(f"\n--- Buscando imagen para: {pregunta_texto[:30]}... ---")
+
+    try:
+        if os.path.exists(FILE_PATH):
+            with open(FILE_PATH, "r", encoding="utf-8") as f:
+                datos = json.load(f)
+            
+            # Buscar la pregunta exacta en el JSON
+            p_encontrada = next((p for p in datos if str(p.get("pregunta")).strip() == pregunta_texto), None)
+            
+            if p_encontrada:
+                ruta_relativa = p_encontrada.get("imagen_path")
+                print(f"Ruta encontrada en JSON: {ruta_relativa}")
+
+                if ruta_relativa and os.path.exists(ruta_relativa):
+                    # Cargar imagen
+                    img = Image.open(ruta_relativa)
+                    img.thumbnail((350, 350)) # Redimensionar para que quepa
+                    img_tk = ImageTk.PhotoImage(img)
+                    
+                    # Actualizar Label
+                    lbl_img_preview.config(image=img_tk, text="")
+                    lbl_img_preview.image = img_tk # ¡CRÍTICO! Guardar referencia
+                    print("✅ Imagen cargada con éxito.")
+                    return
+                else:
+                    print(f"❌ El archivo de imagen NO existe en: {ruta_relativa}")
+            else:
+                print("❌ No se encontró la pregunta en el archivo JSON.")
+
+        # Si algo falla, limpiar el preview
+        lbl_img_preview.config(image="", text="Imagen no encontrada")
+    except Exception as e:
+        print(f"⚠️ Error cargando preview: {e}")
+        lbl_img_preview.config(image="", text="Error de carga")
 
 # =========================
 # UI PRINCIPAL CON TABS
@@ -925,6 +1235,9 @@ entry_dificultad.pack(side="left", padx=(2,15))
 tk.Label(row_mid, text="Universidad:").pack(side="left")
 entry_universidad = tk.Entry(row_mid, width=20, font=("Arial",10))
 entry_universidad.pack(side="left", padx=(2,15))
+tk.Label(row_mid, text="Area:").pack(side="left")
+entry_area = tk.Entry(row_mid, width=20, font=("Arial",10))
+entry_area.pack(side="left", padx=(2,15))
 tk.Label(row_mid, text="Tema:").pack(side="left")
 entry_tema = tk.Entry(row_mid, width=18, font=("Arial",10))
 entry_tema.pack(side="left")
@@ -939,26 +1252,43 @@ tk.Button(frame_btn, text="🗑 Limpiar", command=limpiar_campos, padx=10).pack(
 tab_ver = tk.Frame(notebook)
 notebook.add(tab_ver, text="  📋 Dataset  ")
 
+# --- 1. Botones Superiores ---
 frame_tabla_top = tk.Frame(tab_ver)
-frame_tabla_top.pack(fill="x", padx=10, pady=(10,4))
+frame_tabla_top.pack(fill="x", padx=10, pady=10)
+
 lbl_total = tk.Label(frame_tabla_top, text="Total: 0 preguntas", font=("Arial",10,"bold"))
 lbl_total.pack(side="left")
-tk.Button(frame_tabla_top, text="✏️ Editar", command=editar_fila_seleccionada,
-          bg="#e65100", fg="white", padx=8).pack(side="right", padx=4)
-tk.Button(frame_tabla_top, text="🗑 Eliminar", command=eliminar_fila_seleccionada,
-          bg="#c62828", fg="white", padx=8).pack(side="right", padx=4)
-tk.Button(frame_tabla_top, text="🔄 Actualizar", command=actualizar_vista_dataset,
-          padx=8).pack(side="right", padx=4)
 
-cols = ("Universidad","Tema","Resp","Dif","Pregunta")
-tabla = ttk.Treeview(tab_ver, columns=cols, show="headings", height=22)
-for col, ancho in zip(cols, [120, 110, 45, 45, 380]):
+# --- 2. Contenedor de Cuerpo (Tabla + Imagen) ---
+frame_contenedor = tk.Frame(tab_ver)
+frame_contenedor.pack(fill="both", expand=True)
+
+# Lado Izquierdo: Tabla
+frame_izq = tk.Frame(frame_contenedor)
+frame_izq.pack(side="left", fill="both", expand=True, padx=10)
+
+cols = ("Universidad", "area", "Tema", "Resp", "Dif", "Pregunta")
+# AQUÍ SE DEFINE 'tabla'
+tabla = ttk.Treeview(frame_izq, columns=cols, show="headings", height=22) 
+
+for col, ancho in zip(cols, [100, 100, 100, 45, 45, 350]):
     tabla.heading(col, text=col)
     tabla.column(col, width=ancho, anchor="w")
-sb_tabla = ttk.Scrollbar(tab_ver, orient="vertical", command=tabla.yview)
+
+sb_tabla = ttk.Scrollbar(frame_izq, orient="vertical", command=tabla.yview)
 tabla.configure(yscrollcommand=sb_tabla.set)
-tabla.pack(side="left", fill="both", expand=True, padx=(10,0), pady=(0,10))
-sb_tabla.pack(side="right", fill="y", pady=(0,10), padx=(0,10))
+tabla.pack(side="left", fill="both", expand=True)
+sb_tabla.pack(side="right", fill="y")
+
+# Lado Derecho: Preview
+frame_der = tk.LabelFrame(frame_contenedor, text=" Vista Previa ", padx=10, pady=10)
+frame_der.pack(side="right", fill="both", padx=10)
+
+lbl_img_preview = tk.Label(frame_der, text="Selecciona una pregunta", bg="grey90", width=40)
+lbl_img_preview.pack(fill="both", expand=True)
+
+# --- 3. EL BIND (Debe ir aquí, después de que 'tabla' existe) ---
+tabla.bind("<<TreeviewSelect>>", mostrar_imagen_en_preview)
 
 # ---- TAB 3: ESTADISTICAS ----
 tab_stats = tk.Frame(notebook)
@@ -981,4 +1311,5 @@ tk.Button(tab_stats, text="🔄 Actualizar estadisticas",
 # Cargar datos al inicio
 actualizar_vista_dataset()
 
+app = CreadorDatasetApp(root)
 root.mainloop()
