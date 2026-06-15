@@ -34,7 +34,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   font-family: var(--font-secondary);
   color: var(--color-gris-oscuro);
   background-color: var(--color-gris-muy-claro);
@@ -68,7 +69,7 @@ html, body {
 }
 
 .user-info:hover {
-  background-color: var(--color-gris-muy-claro);
+  background-color: var(--color-azul-claro);
 }
 
 .avatar {
@@ -96,12 +97,23 @@ html, body {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); opacity: 0.8; }
-  100% { transform: scale(1.1); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(1.1);
+    opacity: 0;
+  }
 }
 
 .avatar-initials {
   z-index: 2;
+}
+
+.avatar-initials.hidden {
+  display: none;
 }
 
 .avatar-photo {
@@ -140,6 +152,21 @@ html, body {
   color: var(--color-gris-medio);
 }
 
+/* Botón de perfil: transparente porque tiene
+   la clase .user-info como fondo */
+.btn-profile {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-blanco);
+  color: var(--color-blanco);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Botón de ajustes: en desuso pero puede
+   que se use en un futuro */
 .btn-ajustes {
   display: flex;
   align-items: center;
@@ -846,6 +873,77 @@ html, body {
 
 .toast.show {
   bottom: 2rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GALERÍA DE IMÁGENES
+═══════════════════════════════════════════════════════════════ */
+
+.modal--gallery {
+  max-width: 600px;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 1rem;
+  padding: 0.5rem;
+}
+
+.gallery-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.gallery-item:hover img {
+  transform: scale(1.05);
+}
+
+.gallery-item:hover {
+  border-color: var(--color-azul-claro);
+}
+
+.gallery-item.selected {
+  border-color: var(--color-amarillo-vivo);
+  box-shadow: 0 0 10px rgba(245, 196, 0, 0.5);
+}
+
+.gallery-item-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+}
+
+.gallery-item.selected .gallery-item-overlay {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.gallery-checkmark {
+  width: 2rem;
+  height: 2rem;
+  color: var(--color-amarillo-vivo);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.gallery-item.selected .gallery-checkmark {
+  opacity: 1;
 }
 
 /* ═══════════════════════════════════════════════════════════════
